@@ -71,31 +71,48 @@ def process_and_store(url, title, content, vector_store):
     # Store in Vector DB
     vector_store.add_texts(texts=chunks, metadatas=metadatas)
 
-def fetch_from_feed(feed_url, vector_store, processed):
-    print(f"Checking RSS feed: {feed_url}")
-    feed = feedparser.parse(feed_url)
-    
-    new_count = 0
-    for entry in feed.entries:
-        url = entry.link
-        title = entry.title
+def fetch_from_feed(feed_url, vector_store, processed, max_pages=1):
+    total_new = 0
+    for page in range(1, max_pages + 1):
+        if "?" in feed_url:
+            paged_url = f"{feed_url}&paged={page}"
+        else:
+            paged_url = f"{feed_url}?paged={page}"
+            
+        print(f"Checking RSS feed: {paged_url}")
+        feed = feedparser.parse(paged_url)
         
-        if url not in processed:
-            print(f"New article found: {title}")
-            raw_html = ""
-            if "content" in entry:
-                raw_html = entry.content[0].value
-            elif "summary" in entry:
-                raw_html = entry.summary
+        if not feed.entries:
+            break
+            
+        new_count = 0
+        for entry in feed.entries:
+            url = entry.link
+            title = entry.title
+            
+            if url not in processed:
+                print(f"New article found: {title}")
+                raw_html = ""
+                if "content" in entry:
+                    raw_html = entry.content[0].value
+                elif "summary" in entry:
+                    raw_html = entry.summary
+                    
+                if raw_html:
+                    content = extract_text_from_html(raw_html)
+                    process_and_store(url, title, content, vector_store)
+                    processed.add(url)
+                    new_count += 1
+                # Sleep to be polite to the server
+                time.sleep(1)
                 
-            if raw_html:
-                content = extract_text_from_html(raw_html)
-                process_and_store(url, title, content, vector_store)
-                processed.add(url)
-                new_count += 1
-            # Sleep to be polite to the server
-            time.sleep(1)
-    return new_count
+        total_new += new_count
+        
+        # End pagination early if the feed page is mostly empty
+        if len(feed.entries) < 5:
+            break
+            
+    return total_new
 
 def run_rss_update():
     processed = load_processed_urls()
@@ -128,11 +145,11 @@ def deep_scrape(max_pages=5):
             cat_url += "/"
         category_feeds.append(cat_url + "feed/")
         
-    total_added = fetch_from_feed(WCI_RSS_FEED, vector_store, processed) # Base feed
+    total_added = fetch_from_feed(WCI_RSS_FEED, vector_store, processed, max_pages=max_pages) # Base feed
     
     for feed_url in category_feeds:
         try:
-            total_added += fetch_from_feed(feed_url, vector_store, processed)
+            total_added += fetch_from_feed(feed_url, vector_store, processed, max_pages=max_pages)
         except Exception as e:
             print(f"Error checking category {feed_url}: {e}")
         
@@ -146,6 +163,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     if args.deep:
-        deep_scrape(max_pages=5)  # Start with 5 pages to populate quickly without taking hours
+        deep_scrape(max_pages=15)  # Fetch up to 15 pages (150 articles) per category
     else:
         run_rss_update()
