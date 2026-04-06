@@ -121,16 +121,40 @@ def run_rss_update():
     save_processed_urls(processed)
     print(f"RSS update complete. Added {new_count} new articles.")
 
+# Only scrape categories that contain actionable financial advice for residents.
+# This prevents ingesting thousands of off-topic posts (match-day reactions,
+# scholarship announcements, conference recaps, etc.) that burn through
+# Pinecone's free-tier storage limit without improving answer quality.
+RELEVANT_CATEGORY_KEYWORDS = [
+    "investing", "insurance", "disability", "malpractice", "student-loan",
+    "personal-finance", "retirement", "tax", "estate-planning", "asset-protection",
+    "real-estate", "budgeting", "financial-plan", "debt", "mortgage",
+    "401k", "roth", "hsa", "contract", "entrepreneurship", "practice-management",
+    "financial-boot", "physician-finance", "saving",
+]
+
+# Hard ceiling to stay safely within Pinecone free tier (100K vectors).
+MAX_PINECONE_RECORDS = 90000
+
 def deep_scrape(max_pages=5):
     """
-    Since WCI is protected by Cloudflare blocking standard scraping,
-    our thorough 'deep scrape' will dynamically populate from all active 
-    category RSS feeds found in the category sitemap.
+    Scrapes financially relevant WCI category RSS feeds.
+    Skips off-topic categories and respects a hard Pinecone record ceiling.
     """
-    print("Performing deeper scrape across ALL dynamically found category feeds...")
+    print("Performing targeted deep scrape across relevant WCI category feeds...")
     processed = load_processed_urls()
     
     vector_store = PineconeVectorStore.from_existing_index(index_name=PINECONE_INDEX_NAME, embedding=embeddings)
+    
+    # Check current Pinecone usage before starting
+    index = pc.Index(PINECONE_INDEX_NAME)
+    stats = index.describe_index_stats()
+    current_records = stats.total_vector_count
+    print(f"Current Pinecone records: {current_records:,} / {MAX_PINECONE_RECORDS:,} limit")
+    
+    if current_records >= MAX_PINECONE_RECORDS:
+        print("⚠️  Already at record ceiling. Skipping deep scrape.")
+        return
     
     # Dynamically discover all WCI categories
     res = requests.get("https://www.whitecoatinvestor.com/category-sitemap.xml", headers={"User-Agent": "Mozilla/5.0"})
@@ -141,13 +165,24 @@ def deep_scrape(max_pages=5):
     category_feeds = []
     for loc in category_locs:
         cat_url = loc.text.strip()
-        if not cat_url.endswith("/"):
-            cat_url += "/"
-        category_feeds.append(cat_url + "feed/")
+        # Only include categories whose URL contains a relevant keyword
+        if any(kw in cat_url.lower() for kw in RELEVANT_CATEGORY_KEYWORDS):
+            if not cat_url.endswith("/"):
+                cat_url += "/"
+            category_feeds.append(cat_url + "feed/")
+    
+    skipped = len(category_locs) - len(category_feeds)
+    print(f"Found {len(category_feeds)} relevant categories (skipped {skipped} off-topic).")
         
     total_added = fetch_from_feed(WCI_RSS_FEED, vector_store, processed, max_pages=max_pages) # Base feed
     
     for feed_url in category_feeds:
+        # Re-check record count periodically to avoid overshooting
+        stats = index.describe_index_stats()
+        if stats.total_vector_count >= MAX_PINECONE_RECORDS:
+            print(f"⚠️  Hit {MAX_PINECONE_RECORDS:,} record ceiling. Stopping early.")
+            break
+            
         try:
             total_added += fetch_from_feed(feed_url, vector_store, processed, max_pages=max_pages)
         except Exception as e:
@@ -163,6 +198,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     if args.deep:
-        deep_scrape(max_pages=15)  # Fetch up to 15 pages (150 articles) per category
+        deep_scrape(max_pages=5)  # 5 pages per category (50 articles max each)
     else:
         run_rss_update()
