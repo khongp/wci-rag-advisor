@@ -133,13 +133,13 @@ RELEVANT_CATEGORY_KEYWORDS = [
     "financial-boot", "physician-finance", "saving",
 ]
 
-# Hard ceiling to stay safely within Pinecone free tier (100K vectors).
-MAX_PINECONE_RECORDS = 90000
+# Hard ceiling to stay safely within Pinecone free tier (2 GB storage).
+MAX_STORAGE_BYTES = 1.8 * 1024 * 1024 * 1024  # 1.8 GB with a 200 MB buffer
 
 def deep_scrape(max_pages=5):
     """
     Scrapes financially relevant WCI category RSS feeds.
-    Skips off-topic categories and respects a hard Pinecone record ceiling.
+    Skips off-topic categories and respects Pinecone's 2 GB storage limit.
     """
     print("Performing targeted deep scrape across relevant WCI category feeds...")
     processed = load_processed_urls()
@@ -150,11 +150,7 @@ def deep_scrape(max_pages=5):
     index = pc.Index(PINECONE_INDEX_NAME)
     stats = index.describe_index_stats()
     current_records = stats.total_vector_count
-    print(f"Current Pinecone records: {current_records:,} / {MAX_PINECONE_RECORDS:,} limit")
-    
-    if current_records >= MAX_PINECONE_RECORDS:
-        print("⚠️  Already at record ceiling. Skipping deep scrape.")
-        return
+    print(f"Current Pinecone records: {current_records:,}")
     
     # Dynamically discover all WCI categories
     res = requests.get("https://www.whitecoatinvestor.com/category-sitemap.xml", headers={"User-Agent": "Mozilla/5.0"})
@@ -177,10 +173,11 @@ def deep_scrape(max_pages=5):
     total_added = fetch_from_feed(WCI_RSS_FEED, vector_store, processed, max_pages=max_pages) # Base feed
     
     for feed_url in category_feeds:
-        # Re-check record count periodically to avoid overshooting
+        # Re-check storage periodically to avoid overshooting
         stats = index.describe_index_stats()
-        if stats.total_vector_count >= MAX_PINECONE_RECORDS:
-            print(f"⚠️  Hit {MAX_PINECONE_RECORDS:,} record ceiling. Stopping early.")
+        estimated_bytes = stats.total_vector_count * 12 * 1024  # ~12 KB per 3072-dim vector
+        if estimated_bytes >= MAX_STORAGE_BYTES:
+            print(f"⚠️  Approaching 2 GB storage limit (~{estimated_bytes / (1024**3):.2f} GB). Stopping early.")
             break
             
         try:
