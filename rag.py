@@ -53,7 +53,27 @@ def get_rag_chain():
         "4. If the Context does not contain the answer, you MUST explicitly say: 'The provided White Coat Investor articles do not cover this specific question. However, based on general WCI principles...'\n"
         "5. PROACTIVE ASSESSMENT: If the user asks a complex financial question but you lack necessary details about their situation to give a tailored WCI answer, proactively ask them clarifying questions alongside your advice.\n"
         "6. Keep your tone professional, empathetic, and highly actionable.\n"
-        "7. IN-TEXT CITATIONS MANDATORY: You MUST cite the source of your information using bracketed numbers inline (e.g. [1], [2]) that correspond exactly to the [Source X] tags provided in the Context below. Do not list sources at the very bottom, just cite them inline.\n\n"
+        "7. IN-TEXT CITATIONS MANDATORY: You MUST cite the source of your information using bracketed numbers inline (e.g. [1], [2]) that correspond exactly to the [Source X] tags provided in the Context below. Do not list sources at the very bottom, just cite them inline.\n"
+        "8. RECOMMENDED HUB ROUTING: At the absolute bottom of your response, you MUST append a 'Recommended WCI Hubs' section. From the 'Official WCI Hub Dictionary' below, select 1 or 2 URLs that perfectly match the core topic of the user's question and print them as markdown bullets.\n\n"
+        "Official WCI Hub Dictionary:\n"
+        "- Disability Insurance: https://www.whitecoatinvestor.com/what-you-need-to-know-about-disability-insurance/\n"
+        "- Student Loans: https://www.whitecoatinvestor.com/student-loans/\n"
+        "- Student Loan Ultimate Guide: https://www.whitecoatinvestor.com/ultimate-guide-to-student-loan-debt-management-for-doctors/\n"
+        "- Investing: https://www.whitecoatinvestor.com/investing/\n"
+        "- Malpractice: https://www.whitecoatinvestor.com/category/malpractice-insurance/\n"
+        "- Asset Protection: https://www.whitecoatinvestor.com/category/asset-protection/\n"
+        "- Estate Planning: https://www.whitecoatinvestor.com/category/estate-planning/\n"
+        "- Health Insurance: https://www.whitecoatinvestor.com/the-health-insurance-dilemma-of-early-retirement/\n"
+        "- HSA: https://www.whitecoatinvestor.com/hsa-hdhp-or-not/\n"
+        "- Contracts: https://www.whitecoatinvestor.com/things-to-negotiate-for-in-a-physician-contract/\n"
+        "- Debt: https://www.whitecoatinvestor.com/use-debt-to-your-advantage/\n"
+        "- Entrepreneurship: https://www.whitecoatinvestor.com/category/entrepreneurship/\n"
+        "- Physician Loan: https://www.whitecoatinvestor.com/personal-finance/the-doctor-mortgage-loan/\n"
+        "- Practice Management: https://www.whitecoatinvestor.com/practice-management/\n"
+        "- Retirement Accounts: https://www.whitecoatinvestor.com/retirementaccounts/\n"
+        "- Real Estate Investing: https://www.whitecoatinvestor.com/real-estate-investment-companies/\n"
+        "- Tax: https://www.whitecoatinvestor.com/understanding-your-tax-return-income-flows/\n"
+        "- Starting a Practice: https://www.whitecoatinvestor.com/starting-a-medical-practice/\n\n"
         "Context:\n{context}"
     )
     
@@ -92,7 +112,7 @@ def ask_question(rag_tuple, question, chat_history, specialty, goals, family):
             
         source_id = source_map[url]
         context_parts.append(f"[Source {source_id}: {title}]\n{doc.page_content}")
-        raw_texts.append(f"Excerpt matched to [Source {source_id}]:\n{doc.page_content}")
+        raw_texts.append({'id': source_id, 'title': title, 'url': url, 'content': doc.page_content})
         
     context = "\n\n".join(context_parts)
     
