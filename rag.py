@@ -52,7 +52,8 @@ def get_rag_chain():
         "3. DO NOT extrapolate, assume, or invent advice outside of what is explicitly detailed in the provided Context.\n"
         "4. If the Context does not contain the answer, you MUST explicitly say: 'The provided White Coat Investor articles do not cover this specific question. However, based on general WCI principles...'\n"
         "5. PROACTIVE ASSESSMENT: If the user asks a complex financial question but you lack necessary details about their situation to give a tailored WCI answer, proactively ask them clarifying questions alongside your advice.\n"
-        "6. Keep your tone professional, empathetic, and highly actionable.\n\n"
+        "6. Keep your tone professional, empathetic, and highly actionable.\n"
+        "7. IN-TEXT CITATIONS MANDATORY: You MUST cite the source of your information using bracketed numbers inline (e.g. [1], [2]) that correspond exactly to the [Source X] tags provided in the Context below. Do not list sources at the very bottom, just cite them inline.\n\n"
         "Context:\n{context}"
     )
     
@@ -76,7 +77,24 @@ def ask_question(rag_tuple, question, chat_history, specialty, goals, family):
     # We formulate a search query that integrates context if needed, but for MVP
     # standalone question works okay. In a complex app, we'd use a condensation LCEL here.
     docs = retriever.invoke(question)
-    context = format_docs(docs)
+    context_parts = []
+    sources = []
+    source_map = {}
+    raw_texts = []
+    
+    for doc in docs:
+        url = doc.metadata.get("source", "Unknown")
+        title = doc.metadata.get("title", url)
+        
+        if url not in source_map:
+            source_map[url] = len(sources) + 1
+            sources.append({'id': source_map[url], 'title': title, 'url': url})
+            
+        source_id = source_map[url]
+        context_parts.append(f"[Source {source_id}: {title}]\n{doc.page_content}")
+        raw_texts.append(f"Excerpt matched to [Source {source_id}]:\n{doc.page_content}")
+        
+    context = "\n\n".join(context_parts)
     
     response = chain.invoke({
         "chat_history": chat_history,
@@ -87,12 +105,4 @@ def ask_question(rag_tuple, question, chat_history, specialty, goals, family):
         "family": family
     })
     
-    sources = set()
-    raw_texts = []
-    for doc in docs:
-        if "source" in doc.metadata:
-            title = doc.metadata.get("title", doc.metadata["source"])
-            sources.add((title, doc.metadata["source"]))
-            raw_texts.append(doc.page_content)
-            
     return response, sources, raw_texts

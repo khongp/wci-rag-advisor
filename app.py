@@ -129,8 +129,8 @@ if prompt := st.chat_input("Type your message here..."):
                     final_answer = answer
                     if sources:
                         final_answer += "\n\n**Sources Referenced:**\n"
-                        for title, url in sources:
-                            final_answer += f"- [{title}]({url})\n"
+                        for src in sources:
+                            final_answer += f"- [{src['id']}] [{src['title']}]({src['url']})\n"
                             
                     st.markdown(final_answer)
                     
