@@ -35,8 +35,8 @@ def get_rag_chain():
     )
     
     # Set temperature strictly to 0.0 to prevent hallucination outside WCI data
-    # Swapped to gemini-2.5-flash for massive cost reduction and speed while maintaining RAG performance
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.0)
+    # Swapped to gemini-2.5-flash-lite for maximum cost efficiency. 
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", temperature=0.0)
     
     # We create a customized prompt that expects context, user specialty, and user goals
     system_prompt = (
