@@ -35,15 +35,57 @@ def auto_sync():
 
 from rag import get_rag_chain, ask_question
 
-st.set_page_config(page_title="WCI Advisor Bot", page_icon="🏦")
+st.set_page_config(page_title="White RAG Investor", page_icon="🩺", layout="centered")
 
 # Fire the daily sync check when app is accessed
 auto_sync()
 
-st.title("👨‍⚕️ White Coat Investor AI Advisor")
-st.markdown("A personalized AI consultant for medical residents learning about finance.")
+# ── Sidebar: About Section ──────────────────────────────────────────
+with st.sidebar:
+    st.header("🩺 About White RAG Investor")
+    st.markdown(
+        "**White RAG Investor** is a free AI-powered financial advisor built "
+        "specifically for medical residents — the folks still in the *rags* "
+        "phase of their white-coat journey.\n\n"
+        "The name is a double play on words:\n"
+        "- **RAG** = *Retrieval-Augmented Generation*, the AI architecture "
+        "that powers this chatbot.\n"
+        "- **Rags** = because let's be honest, you're surviving on a "
+        "resident's salary right now.\n\n"
+        "---\n"
+        "### How It Works\n"
+        "Every answer is grounded in real articles from the "
+        "[White Coat Investor](https://www.whitecoatinvestor.com/) blog — "
+        "over a decade of physician-specific financial wisdom.\n\n"
+        "1. **You ask a question** about student loans, disability insurance, "
+        "investing, contracts, or anything else.\n"
+        "2. **The AI searches** thousands of indexed WCI articles and pulls the "
+        "most relevant paragraphs.\n"
+        "3. **It synthesizes a tailored answer** using Google's Gemini model, "
+        "citing exactly which articles it drew from with inline `[1]` `[2]` "
+        "tags so you can verify everything.\n\n"
+        "The bot also learns your specialty, PGY year, financial goals, and "
+        "family situation in the first few messages so every response is "
+        "personalized to *your* life — not some generic finance FAQ.\n\n"
+        "---\n"
+        "### Why It Was Built\n"
+        "Medical school teaches you how to save lives, not how to manage a "
+        "six-figure debt load. Most residents are too burned out to read "
+        "hundreds of blog posts. This bot distills all of that knowledge into "
+        "a conversation you can have at 2 AM after a 14-hour shift.\n\n"
+        "*Built with ❤️ for the next generation of physicians.*"
+    )
+    st.markdown("---")
+    st.caption("Powered by LangChain · Pinecone · Gemini · Streamlit")
 
-st.info("⚠️ **Disclaimer:** This AI assistant is provided for informational and educational purposes only. It is not a certified financial planner, tax attorney, or medical professional. All advice uses data derived algorithmically from the White Coat Investor blogs. Please verify critical financial decisions independently.")
+# ── Main Chat Area ──────────────────────────────────────────────────
+st.title("🩺 White RAG Investor")
+st.markdown("*Financial wisdom for physicians still in the rags phase of their white-coat journey.*")
+
+st.info("⚠️ **Disclaimer:** This AI assistant is for informational and educational purposes only. "
+        "It is not a certified financial planner, tax attorney, or medical professional. "
+        "All advice is algorithmically derived from White Coat Investor articles. "
+        "Please verify critical financial decisions independently.")
 
 # Initialize session state variables
 if "specialty" not in st.session_state:
@@ -56,13 +98,13 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
     st.session_state.messages.append({
         "role": "assistant", 
-        "content": "Hello! I am your WCI AI Assistant. To give you the best advice, **what is your medical specialty and PGY level?**"
+        "content": "Hey there! 👋 I'm your **White RAG Investor** — an AI financial advisor trained on the entire White Coat Investor blog. To personalize my advice, **what is your medical specialty and PGY level?**"
     })
 
 # Check if we have the DB ready
 try:
     if "rag_chain" not in st.session_state:
-        with st.spinner("Loading WCI Knowledge Base..."):
+        with st.spinner("Loading the White RAG knowledge base..."):
             st.session_state.rag_chain = get_rag_chain()
 except Exception as e:
     st.error(f"Error loading Knowledge Base: {e}\n\nPlease run `python scraper.py --deep` to build the database first.")
@@ -74,7 +116,7 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 # Chat Input
-if prompt := st.chat_input("Type your message here..."):
+if prompt := st.chat_input("Ask me anything about physician finances..."):
     # Immediately display user message
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
@@ -99,7 +141,7 @@ if prompt := st.chat_input("Type your message here..."):
         
     elif st.session_state.family is None:
         st.session_state.family = prompt
-        response = f"Thank you! You are a **{st.session_state.specialty}** focused on **{st.session_state.goals}**, with family status: **{st.session_state.family}**. Ask me any financial question!"
+        response = f"You're all set! You're a **{st.session_state.specialty}** focused on **{st.session_state.goals}**, family status: **{st.session_state.family}**. Fire away — ask me anything about physician finances! 💰"
         with st.chat_message("assistant"):
             st.markdown(response)
         st.session_state.messages.append({"role": "assistant", "content": response})
@@ -108,7 +150,7 @@ if prompt := st.chat_input("Type your message here..."):
     else:
         # We have the context, trigger standard RAG
         with st.chat_message("assistant"):
-            with st.spinner("Consulting WCI..."):
+            with st.spinner("Digging through WCI articles..."):
                 try:
                     # Build recent chat history as string to give LLM conversational memory
                     chat_history_str = ""
