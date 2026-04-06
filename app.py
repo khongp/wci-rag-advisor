@@ -126,19 +126,13 @@ if prompt := st.chat_input("Type your message here..."):
                         st.session_state.family
                     )
                     
-                    final_answer = answer
-                    if sources:
-                        final_answer += "\n\n**Sources Referenced:**\n"
-                        for src in sources:
-                            final_answer += f"- [{src['id']}] [{src['title']}]({src['url']})\n"
-                            
-                    st.markdown(final_answer)
+                    st.markdown(answer)
                     
                     if raw_texts:
                         with st.expander("View Raw WCI Article Excerpts Used"):
-                            for idx, text in enumerate(raw_texts):
-                                st.markdown(f"**Excerpt {idx+1}:**\n> {text}")
+                            for text_obj in raw_texts:
+                                st.markdown(f"**Excerpt [{text_obj['id']}]: [{text_obj['title']}]({text_obj['url']})**\n> {text_obj['content']}")
                                 
-                    st.session_state.messages.append({"role": "assistant", "content": final_answer})
+                    st.session_state.messages.append({"role": "assistant", "content": answer})
                 except Exception as e:
                     st.error(f"Error calling LLM: {e}")
