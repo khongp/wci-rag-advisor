@@ -152,15 +152,15 @@ if (st.session_state.question_count == 0
                 st.session_state.starter_query = clean_query
                 st.rerun()
 
-# ── Action Buttons (above chat input, always near the bottom) ────────
-btn_col1, btn_col2, spacer = st.columns([1, 1, 2])
-with btn_col1:
-    if st.button("🔄 New Chat", use_container_width=True):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        st.rerun()
-with btn_col2:
-    if st.session_state.get("messages") and len(st.session_state.messages) > 2:
+# ── Action Buttons (only appear after the user has started chatting) ──
+if st.session_state.question_count > 0:
+    btn_col1, btn_col2, spacer = st.columns([1, 1, 2])
+    with btn_col1:
+        if st.button("🔄 New Chat", use_container_width=True):
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.rerun()
+    with btn_col2:
         chat_export = ""
         for msg in st.session_state.messages:
             role = "You" if msg["role"] == "user" else "White RAG Investor"
