@@ -234,8 +234,7 @@ if prompt:
                     })
                     st.session_state.question_count += 1
                     
-                    # One-time hint after first question so users discover the sidebar
-                    if st.session_state.question_count == 1:
-                        st.caption("💡 Tip: Use the ☰ sidebar to export your chat or start a new conversation.")
+                    # Force rerun so sidebar buttons appear immediately
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Error calling LLM: {e}")
