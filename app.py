@@ -77,15 +77,25 @@ with st.sidebar:
     )
     st.markdown("---")
     st.caption("Powered by LangChain · Pinecone · Gemini · Streamlit")
-    
-    st.markdown("---")
+
+# ── Main Chat Area ──────────────────────────────────────────────────
+st.title("🩺 White RAG Investor")
+st.markdown("*Financial wisdom for physicians still in the rags phase of their white-coat journey.*")
+
+st.info("⚠️ **Disclaimer:** This AI assistant is for informational and educational purposes only. "
+        "It is not a certified financial planner, tax attorney, or medical professional. "
+        "All advice is algorithmically derived from White Coat Investor articles. "
+        "Please verify critical financial decisions independently.")
+
+# ── Action Buttons (always visible) ───────────────────────────────────
+btn_col1, btn_col2 = st.columns(2)
+with btn_col1:
     if st.button("🔄 New Chat", use_container_width=True):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.rerun()
-    
-    # Export chat as text file
-    if st.session_state.get("messages") and len(st.session_state.messages) > 4:
+with btn_col2:
+    if st.session_state.get("messages") and len(st.session_state.get("messages", [])) > 4:
         chat_export = ""
         for msg in st.session_state.messages:
             role = "You" if msg["role"] == "user" else "White RAG Investor"
@@ -97,15 +107,6 @@ with st.sidebar:
             mime="text/plain",
             use_container_width=True
         )
-
-# ── Main Chat Area ──────────────────────────────────────────────────
-st.title("🩺 White RAG Investor")
-st.markdown("*Financial wisdom for physicians still in the rags phase of their white-coat journey.*")
-
-st.info("⚠️ **Disclaimer:** This AI assistant is for informational and educational purposes only. "
-        "It is not a certified financial planner, tax attorney, or medical professional. "
-        "All advice is algorithmically derived from White Coat Investor articles. "
-        "Please verify critical financial decisions independently.")
 
 # Initialize session state variables
 if "specialty" not in st.session_state:
@@ -138,8 +139,13 @@ except Exception as e:
 for idx, message in enumerate(st.session_state.messages):
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
-        # Show feedback widget on RAG responses (skip onboarding messages)
+        # Render stored excerpts for RAG responses
         if message["role"] == "assistant" and message.get("is_rag"):
+            excerpts = message.get("excerpts", [])
+            if excerpts:
+                with st.expander("View Raw WCI Article Excerpts Used"):
+                    for text_obj in excerpts:
+                        st.markdown(f"**Excerpt [{text_obj['id']}]: [{text_obj['title']}]({text_obj['url']})**\n> {text_obj['content']}")
             st.feedback("thumbs", key=f"feedback_{idx}")
 
 # ── Conversation Starters ───────────────────────────────────────────
@@ -240,7 +246,12 @@ if prompt:
                         # Show feedback on the freshly rendered response
                         st.feedback("thumbs", key=f"feedback_{len(st.session_state.messages)}")
                                     
-                        st.session_state.messages.append({"role": "assistant", "content": answer, "is_rag": True})
+                        st.session_state.messages.append({
+                            "role": "assistant", 
+                            "content": answer, 
+                            "is_rag": True,
+                            "excerpts": raw_texts  # Persist excerpts for reruns
+                        })
                         st.session_state.question_count += 1
                     except Exception as e:
                         st.error(f"Error calling LLM: {e}")
