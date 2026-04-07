@@ -71,6 +71,22 @@ def process_and_store(url, title, content, vector_store):
     # Store in Vector DB
     vector_store.add_texts(texts=chunks, metadatas=metadatas)
 
+def is_url_indexed(url):
+    """Check if a URL has already been indexed in Pinecone (cloud-safe dedup)."""
+    try:
+        index = pc.Index(PINECONE_INDEX_NAME)
+        # Use a dummy vector for the query — we only care about the metadata filter
+        dummy_vector = [1.0] + [0.0] * 3071
+        results = index.query(
+            vector=dummy_vector,
+            filter={"source": {"$eq": url}},
+            top_k=1,
+            include_metadata=False
+        )
+        return len(results.matches) > 0
+    except Exception:
+        return False
+
 def fetch_from_feed(feed_url, vector_store, processed, max_pages=1):
     total_new = 0
     for page in range(1, max_pages + 1):
@@ -90,21 +106,24 @@ def fetch_from_feed(feed_url, vector_store, processed, max_pages=1):
             url = entry.link
             title = entry.title
             
-            if url not in processed:
-                print(f"New article found: {title}")
-                raw_html = ""
-                if "content" in entry:
-                    raw_html = entry.content[0].value
-                elif "summary" in entry:
-                    raw_html = entry.summary
+            # Double-check: skip if in local JSON OR already in Pinecone
+            if url in processed or is_url_indexed(url):
+                continue
+                
+            print(f"New article found: {title}")
+            raw_html = ""
+            if "content" in entry:
+                raw_html = entry.content[0].value
+            elif "summary" in entry:
+                raw_html = entry.summary
                     
-                if raw_html:
-                    content = extract_text_from_html(raw_html)
-                    process_and_store(url, title, content, vector_store)
-                    processed.add(url)
-                    new_count += 1
-                # Sleep to be polite to the server
-                time.sleep(1)
+            if raw_html:
+                content = extract_text_from_html(raw_html)
+                process_and_store(url, title, content, vector_store)
+                processed.add(url)
+                new_count += 1
+            # Sleep to be polite to the server
+            time.sleep(1)
                 
         total_new += new_count
         

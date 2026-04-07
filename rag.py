@@ -5,13 +5,15 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.globals import set_llm_cache
-from langchain_community.cache import SQLiteCache
+from langchain_core.caches import InMemoryCache
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Enable local SQLite caching for identical queries to save API costs
-set_llm_cache(SQLiteCache(database_path=".langchain.db"))
+# Enable in-memory caching for identical queries to save API costs.
+# InMemoryCache works on Streamlit Cloud (SQLiteCache fails on ephemeral filesystems).
+# Cache resets on server restart but persists within a session.
+set_llm_cache(InMemoryCache())
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "wci-index")
