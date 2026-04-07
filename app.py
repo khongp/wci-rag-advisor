@@ -83,6 +83,20 @@ with st.sidebar:
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.rerun()
+    
+    # Export chat as text file
+    if st.session_state.get("messages") and len(st.session_state.messages) > 4:
+        chat_export = ""
+        for msg in st.session_state.messages:
+            role = "You" if msg["role"] == "user" else "White RAG Investor"
+            chat_export += f"{role}:\n{msg['content']}\n\n---\n\n"
+        st.download_button(
+            "📥 Export Chat",
+            data=chat_export,
+            file_name="white_rag_investor_chat.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
 
 # ── Main Chat Area ──────────────────────────────────────────────────
 st.title("🩺 White RAG Investor")
@@ -128,8 +142,36 @@ for idx, message in enumerate(st.session_state.messages):
         if message["role"] == "assistant" and message.get("is_rag"):
             st.feedback("thumbs", key=f"feedback_{idx}")
 
+# ── Conversation Starters ───────────────────────────────────────────
+# Show quick-start buttons only after onboarding is complete and no questions asked yet
+if (st.session_state.family is not None 
+    and st.session_state.question_count == 0
+    and not any(m.get("is_rag") for m in st.session_state.messages)):
+    
+    st.markdown("**Not sure where to start? Try one of these:**")
+    starters = [
+        "💳 Disability insurance basics",
+        "🎓 Should I refinance my student loans?",
+        "💰 How to start investing as a resident",
+        "🏠 Backdoor Roth IRA explained",
+    ]
+    cols = st.columns(2)
+    for i, starter in enumerate(starters):
+        with cols[i % 2]:
+            if st.button(starter, key=f"starter_{i}", use_container_width=True):
+                # Strip the emoji prefix for a cleaner query
+                clean_query = starter.split(" ", 1)[1]
+                st.session_state.starter_query = clean_query
+                st.rerun()
+
 # Chat Input
-if prompt := st.chat_input("Ask me anything about physician finances..."):
+prompt = st.chat_input("Ask me anything about physician finances...")
+
+# Check if a conversation starter was clicked
+if "starter_query" in st.session_state:
+    prompt = st.session_state.pop("starter_query")
+
+if prompt:
     # Immediately display user message
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):

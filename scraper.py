@@ -59,8 +59,8 @@ def process_and_store(url, title, content, vector_store):
     """Chunks the text and stores it in ChromaDB."""
     print(f"Vectorizing: {title}")
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=200,
+        chunk_size=1500,
+        chunk_overlap=250,
         separators=["\n\n", "\n", ".", " ", ""]
     )
     chunks = text_splitter.split_text(content)
