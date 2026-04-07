@@ -86,6 +86,26 @@ with st.sidebar:
     )
     st.markdown("---")
     st.caption("Powered by LangChain · Pinecone · Gemini · Streamlit")
+    
+    # Show action buttons only after user has started chatting
+    if st.session_state.get("question_count", 0) > 0:
+        st.markdown("---")
+        if st.button("🔄 New Chat", use_container_width=True):
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.rerun()
+        
+        chat_export = ""
+        for msg in st.session_state.get("messages", []):
+            role = "You" if msg["role"] == "user" else "White RAG Investor"
+            chat_export += f"{role}:\n{msg['content']}\n\n---\n\n"
+        st.download_button(
+            "📥 Export Chat",
+            data=chat_export,
+            file_name="white_rag_investor_chat.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
 
 # ── Main Chat Area ──────────────────────────────────────────────────
 st.title("🩺 White RAG Investor")
@@ -152,26 +172,6 @@ if (st.session_state.question_count == 0
                 st.session_state.starter_query = clean_query
                 st.rerun()
 
-# ── Action Buttons (only appear after the user has started chatting) ──
-if st.session_state.question_count > 0:
-    btn_col1, btn_col2, spacer = st.columns([1, 1, 2])
-    with btn_col1:
-        if st.button("🔄 New Chat", use_container_width=True):
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
-            st.rerun()
-    with btn_col2:
-        chat_export = ""
-        for msg in st.session_state.messages:
-            role = "You" if msg["role"] == "user" else "White RAG Investor"
-            chat_export += f"{role}:\n{msg['content']}\n\n---\n\n"
-        st.download_button(
-            "📥 Export",
-            data=chat_export,
-            file_name="white_rag_investor_chat.txt",
-            mime="text/plain",
-            use_container_width=True
-        )
 
 # ── Chat Input ──────────────────────────────────────────────────────
 prompt = st.chat_input("Ask me anything about physician finances...")
@@ -233,5 +233,9 @@ if prompt:
                         "excerpts": raw_texts
                     })
                     st.session_state.question_count += 1
+                    
+                    # One-time hint after first question so users discover the sidebar
+                    if st.session_state.question_count == 1:
+                        st.caption("💡 Tip: Use the ☰ sidebar to export your chat or start a new conversation.")
                 except Exception as e:
                     st.error(f"Error calling LLM: {e}")
