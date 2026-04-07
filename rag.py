@@ -6,6 +6,7 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.globals import set_llm_cache
 from langchain_core.caches import InMemoryCache
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -117,13 +118,22 @@ def ask_question(rag_tuple, question, chat_history, specialty, goals, family):
         
     context = "\n\n".join(context_parts)
     
-    response = chain.invoke({
-        "chat_history": chat_history,
-        "context": context,
-        "input": question,
-        "specialty": specialty,
-        "goals": goals,
-        "family": family
-    })
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type(Exception),
+        reraise=True
+    )
+    def invoke_with_retry():
+        return chain.invoke({
+            "chat_history": chat_history,
+            "context": context,
+            "input": question,
+            "specialty": specialty,
+            "goals": goals,
+            "family": family
+        })
+    
+    response = invoke_with_retry()
     
     return response, sources, raw_texts
