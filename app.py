@@ -140,6 +140,7 @@ except Exception as e:
     st.stop()
 
 # Display chat history
+first_rag_shown = False
 for idx, message in enumerate(st.session_state.messages):
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
@@ -151,6 +152,10 @@ for idx, message in enumerate(st.session_state.messages):
                     for text_obj in excerpts:
                         st.markdown(f"**Excerpt [{text_obj['id']}]: [{text_obj['title']}]({text_obj['url']})**\n> {text_obj['content']}")
             st.feedback("thumbs", key=f"feedback_{idx}")
+            # One-time hint after the first RAG response
+            if not first_rag_shown:
+                st.caption("💡 Tip: Use the ☰ sidebar to export your chat or start a new conversation.")
+                first_rag_shown = True
 
 # ── Conversation Starters ───────────────────────────────────────────
 # Show quick-start buttons only when no real questions have been asked yet
