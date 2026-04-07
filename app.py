@@ -77,6 +77,12 @@ with st.sidebar:
     )
     st.markdown("---")
     st.caption("Powered by LangChain · Pinecone · Gemini · Streamlit")
+    
+    st.markdown("---")
+    if st.button("🔄 New Chat", use_container_width=True):
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
 
 # ── Main Chat Area ──────────────────────────────────────────────────
 st.title("🩺 White RAG Investor")
@@ -100,6 +106,10 @@ if "messages" not in st.session_state:
         "role": "assistant", 
         "content": "Hey there! 👋 I'm your **White RAG Investor** — an AI financial advisor trained on the entire White Coat Investor blog. To personalize my advice, **what is your medical specialty and PGY level?**"
     })
+if "question_count" not in st.session_state:
+    st.session_state.question_count = 0
+
+MAX_QUESTIONS_PER_SESSION = 25
 
 # Check if we have the DB ready
 try:
@@ -111,9 +121,12 @@ except Exception as e:
     st.stop()
 
 # Display chat history
-for message in st.session_state.messages:
+for idx, message in enumerate(st.session_state.messages):
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
+        # Show feedback widget on RAG responses (skip onboarding messages)
+        if message["role"] == "assistant" and message.get("is_rag"):
+            st.feedback("thumbs", key=f"feedback_{idx}")
 
 # Chat Input
 if prompt := st.chat_input("Ask me anything about physician finances..."):
@@ -148,33 +161,44 @@ if prompt := st.chat_input("Ask me anything about physician finances..."):
         st.rerun()
         
     else:
-        # We have the context, trigger standard RAG
-        with st.chat_message("assistant"):
-            with st.spinner("Digging through WCI articles..."):
-                try:
-                    # Build recent chat history as string to give LLM conversational memory
-                    chat_history_str = ""
-                    # Grab last 4 messages (2 questions, 2 answers) excluding the current prompt
-                    recent_msgs = st.session_state.messages[-5:-1] 
-                    for msg in recent_msgs:
-                        chat_history_str += f"{msg['role'].capitalize()}: {msg['content']}\n"
+        # Check rate limit
+        if st.session_state.question_count >= MAX_QUESTIONS_PER_SESSION:
+            with st.chat_message("assistant"):
+                limit_msg = "⚠️ You've reached the **25-question limit** for this session to keep costs manageable. Click **🔄 New Chat** in the sidebar to start a fresh session!"
+                st.markdown(limit_msg)
+                st.session_state.messages.append({"role": "assistant", "content": limit_msg})
+        else:
+            # We have the context, trigger standard RAG
+            with st.chat_message("assistant"):
+                with st.spinner("Digging through WCI articles..."):
+                    try:
+                        # Build recent chat history as string to give LLM conversational memory
+                        chat_history_str = ""
+                        # Grab last 4 messages (2 questions, 2 answers) excluding the current prompt
+                        recent_msgs = st.session_state.messages[-5:-1] 
+                        for msg in recent_msgs:
+                            chat_history_str += f"{msg['role'].capitalize()}: {msg['content']}\n"
+                            
+                        answer, sources, raw_texts = ask_question(
+                            st.session_state.rag_chain,
+                            prompt,
+                            chat_history_str,
+                            st.session_state.specialty,
+                            st.session_state.goals,
+                            st.session_state.family
+                        )
                         
-                    answer, sources, raw_texts = ask_question(
-                        st.session_state.rag_chain,
-                        prompt,
-                        chat_history_str,
-                        st.session_state.specialty,
-                        st.session_state.goals,
-                        st.session_state.family
-                    )
-                    
-                    st.markdown(answer)
-                    
-                    if raw_texts:
-                        with st.expander("View Raw WCI Article Excerpts Used"):
-                            for text_obj in raw_texts:
-                                st.markdown(f"**Excerpt [{text_obj['id']}]: [{text_obj['title']}]({text_obj['url']})**\n> {text_obj['content']}")
-                                
-                    st.session_state.messages.append({"role": "assistant", "content": answer})
-                except Exception as e:
-                    st.error(f"Error calling LLM: {e}")
+                        st.markdown(answer)
+                        
+                        if raw_texts:
+                            with st.expander("View Raw WCI Article Excerpts Used"):
+                                for text_obj in raw_texts:
+                                    st.markdown(f"**Excerpt [{text_obj['id']}]: [{text_obj['title']}]({text_obj['url']})**\n> {text_obj['content']}")
+                        
+                        # Show feedback on the freshly rendered response
+                        st.feedback("thumbs", key=f"feedback_{len(st.session_state.messages)}")
+                                    
+                        st.session_state.messages.append({"role": "assistant", "content": answer, "is_rag": True})
+                        st.session_state.question_count += 1
+                    except Exception as e:
+                        st.error(f"Error calling LLM: {e}")
