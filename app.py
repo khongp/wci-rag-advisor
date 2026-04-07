@@ -77,24 +77,13 @@ with st.sidebar:
     )
     st.markdown("---")
     st.caption("Powered by LangChain · Pinecone · Gemini · Streamlit")
-
-# ── Main Chat Area ──────────────────────────────────────────────────
-st.title("🩺 White RAG Investor")
-st.markdown("*Financial wisdom for physicians still in the rags phase of their white-coat journey.*")
-
-st.info("⚠️ **Disclaimer:** This AI assistant is for informational and educational purposes only. "
-        "It is not a certified financial planner, tax attorney, or medical professional. "
-        "All advice is algorithmically derived from White Coat Investor articles. "
-        "Please verify critical financial decisions independently.")
-
-# ── Action Buttons (always visible) ───────────────────────────────────
-btn_col1, btn_col2 = st.columns(2)
-with btn_col1:
+    
+    st.markdown("---")
     if st.button("🔄 New Chat", use_container_width=True):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.rerun()
-with btn_col2:
+    
     if st.session_state.get("messages") and len(st.session_state.get("messages", [])) > 4:
         chat_export = ""
         for msg in st.session_state.messages:
@@ -107,6 +96,15 @@ with btn_col2:
             mime="text/plain",
             use_container_width=True
         )
+
+# ── Main Chat Area ──────────────────────────────────────────────────
+st.title("🩺 White RAG Investor")
+st.markdown("*Financial wisdom for physicians still in the rags phase of their white-coat journey.*")
+
+st.info("⚠️ **Disclaimer:** This AI assistant is for informational and educational purposes only. "
+        "It is not a certified financial planner, tax attorney, or medical professional. "
+        "All advice is algorithmically derived from White Coat Investor articles. "
+        "Please verify critical financial decisions independently.")
 
 # Initialize session state variables
 if "specialty" not in st.session_state:
