@@ -121,12 +121,10 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
     st.session_state.messages.append({
         "role": "assistant", 
-        "content": "Hey there! 👋 I'm your **White RAG Investor** — an AI financial advisor trained on the entire White Coat Investor blog.\n\nAsk me anything about physician finances! For more personalized advice, feel free to mention your **specialty**, **PGY year**, or **financial goals** at any point."
+        "content": "Hey there! 👋 I'm your **White RAG Investor** — an AI financial advisor trained on the entire White Coat Investor blog.\n\nAsk me anything about physician finances — student loans, disability insurance, investing, contracts, taxes, and more!"
     })
 if "question_count" not in st.session_state:
     st.session_state.question_count = 0
-if "user_profile" not in st.session_state:
-    st.session_state.user_profile = {}
 
 MAX_QUESTIONS_PER_SESSION = 25
 
@@ -198,12 +196,6 @@ if prompt:
             st.markdown(limit_msg)
             st.session_state.messages.append({"role": "assistant", "content": limit_msg})
     else:
-        # Build profile context from whatever the user has shared so far
-        profile = st.session_state.user_profile
-        specialty = profile.get("specialty", "Not yet shared")
-        goals = profile.get("goals", "Not yet shared")
-        family = profile.get("family", "Not yet shared")
-        
         with st.chat_message("assistant"):
             with st.spinner("Digging through WCI articles..."):
                 try:
@@ -216,10 +208,7 @@ if prompt:
                     answer, sources, raw_texts = ask_question(
                         st.session_state.rag_chain,
                         prompt,
-                        chat_history_str,
-                        specialty,
-                        goals,
-                        family
+                        chat_history_str
                     )
                     
                     st.markdown(answer)
