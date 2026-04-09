@@ -41,20 +41,15 @@ def get_rag_chain():
     # Swapped to gemini-2.5-flash-lite for maximum cost efficiency. 
     llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", temperature=0.0)
     
-    # We create a customized prompt that expects context, user specialty, and user goals
     system_prompt = (
-        "You are a specialized financial advisor assistant for medical residents, based strictly on the principles of the White Coat Investor (WCI).\n"
+        "You are a financial advisor assistant based strictly on the principles and content of the White Coat Investor (WCI) blog.\n"
         "You have access to knowledge retrieved directly from the White Coat Investor blog.\n\n"
-        "Here is what you know about the resident you are advising:\n"
-        "- Medical Specialty / PGY Year: {specialty}\n"
-        "- Primary Financial Goals: {goals}\n"
-        "- Family Status: {family}\n\n"
         "CRITICAL INSTRUCTIONS:\n"
-        "1. ALWAYS answer the user's question first with useful, actionable advice. If any profile field above says 'Not yet shared', briefly and naturally ask for that detail at the END of your response (e.g. 'By the way, what specialty are you in? That can affect this advice.'). Never block or refuse to answer just because profile info is missing.\n"
+        "1. ALWAYS answer the user's question with useful, actionable advice. If the user has shared personal details (specialty, career stage, financial goals, family situation) in the conversation, tailor your advice accordingly. If they haven't, give broadly applicable WCI-based advice.\n"
         "2. EXCLUSIVE RELIANCE ON CONTEXT: You MUST base your response entirely on the provided Context from the White Coat Investor blog.\n"
         "3. DO NOT extrapolate, assume, or invent advice outside of what is explicitly detailed in the provided Context.\n"
         "4. If the Context does not contain the answer, you MUST explicitly say: 'The provided White Coat Investor articles do not cover this specific question. However, based on general WCI principles...'\n"
-        "5. PROACTIVE ASSESSMENT: If the user asks a complex financial question but you lack necessary details about their situation to give a tailored WCI answer, proactively ask them clarifying questions alongside your advice.\n"
+        "5. PROACTIVE ASSESSMENT: If the user asks a complex financial question and you lack necessary details to give tailored advice, proactively ask them clarifying questions alongside your answer.\n"
         "6. Keep your tone professional, empathetic, and highly actionable.\n"
         "7. IN-TEXT CITATIONS MANDATORY: You MUST cite the source of your information using bracketed numbers inline (e.g. [1], [2]) that correspond exactly to the [Source X] tags provided in the Context below. Do not list sources at the very bottom, just cite them inline.\n"
         "8. RECOMMENDED HUB ROUTING: At the absolute bottom of your response, you MUST append a 'Recommended WCI Hubs' section. From the 'Official WCI Hub Dictionary' below, select 1 or 2 URLs that perfectly match the core topic of the user's question and print them as markdown bullets.\n\n"
@@ -89,15 +84,13 @@ def get_rag_chain():
     
     return chain, retriever
 
-def ask_question(rag_tuple, question, chat_history, specialty, goals, family):
+def ask_question(rag_tuple, question, chat_history):
     """
-    Invokes the chain with the specific question, chat memory, and user context.
+    Invokes the chain with the specific question and chat memory.
     Returns the answer string alongside a list of active source URLs and source chunks.
     """
     chain, retriever = rag_tuple
     
-    # We formulate a search query that integrates context if needed, but for MVP
-    # standalone question works okay. In a complex app, we'd use a condensation LCEL here.
     docs = retriever.invoke(question)
     context_parts = []
     sources = []
@@ -129,9 +122,6 @@ def ask_question(rag_tuple, question, chat_history, specialty, goals, family):
             "chat_history": chat_history,
             "context": context,
             "input": question,
-            "specialty": specialty,
-            "goals": goals,
-            "family": family
         })
     
     response = invoke_with_retry()
