@@ -50,46 +50,10 @@ st.markdown("""
 # Fire the daily sync check when app is accessed
 auto_sync()
 
-# ── Sidebar: About Section ──────────────────────────────────────────
+# ── Sidebar ─────────────────────────────────────────────────────────
 with st.sidebar:
-    st.header("🩺 About White RAG Investor")
-    st.markdown(
-        "**White RAG Investor** is a free AI-powered financial advisor built "
-        "specifically for medical residents — the folks still in the *rags* "
-        "phase of their white-coat journey.\n\n"
-        "The name is a double play on words:\n"
-        "- **RAG** = *Retrieval-Augmented Generation*, the AI architecture "
-        "that powers this chatbot.\n"
-        "- **Rags** = because let's be honest, you're surviving on a "
-        "resident's salary right now.\n\n"
-        "---\n"
-        "### How It Works\n"
-        "Every answer is grounded in real articles from the "
-        "[White Coat Investor](https://www.whitecoatinvestor.com/) blog — "
-        "over a decade of physician-specific financial wisdom.\n\n"
-        "1. **You ask a question** about student loans, disability insurance, "
-        "investing, contracts, or anything else.\n"
-        "2. **The AI searches** thousands of indexed WCI articles and pulls the "
-        "most relevant paragraphs.\n"
-        "3. **It synthesizes a tailored answer** using Google's Gemini model, "
-        "citing exactly which articles it drew from with inline `[1]` `[2]` "
-        "tags so you can verify everything.\n\n"
-        "Tell the bot your specialty, PGY year, and financial goals at any "
-        "point and it will tailor every response to *your* life.\n\n"
-        "---\n"
-        "### Why It Was Built\n"
-        "Medical school teaches you how to save lives, not how to manage a "
-        "six-figure debt load. Most residents are too burned out to read "
-        "hundreds of blog posts. This bot distills all of that knowledge into "
-        "a conversation you can have at 2 AM after a 14-hour shift.\n\n"
-        "*Built with ❤️ for the next generation of physicians.*"
-    )
-    st.markdown("---")
-    st.caption("Powered by LangChain · Pinecone · Gemini · Streamlit")
-    
-    # Show action buttons only after user has started chatting
+    # Action buttons at the top — immediately visible, no scrolling
     if st.session_state.get("question_count", 0) > 0:
-        st.markdown("---")
         if st.button("🔄 New Chat", use_container_width=True):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
@@ -106,6 +70,38 @@ with st.sidebar:
             mime="text/plain",
             use_container_width=True
         )
+        st.markdown("---")
+    
+    st.header("🩺 About White RAG Investor")
+    st.markdown(
+        "**White RAG Investor** is a free AI-powered financial advisor built "
+        "for physicians and high-income professionals.\n\n"
+        "The name is a double play on words:\n"
+        "- **RAG** = *Retrieval-Augmented Generation*, the AI architecture "
+        "that powers this chatbot.\n"
+        "- **Rags** = because let's be honest, those student loans hit "
+        "different.\n\n"
+        "---\n"
+        "### How It Works\n"
+        "Every answer is grounded in real articles from the "
+        "[White Coat Investor](https://www.whitecoatinvestor.com/) blog — "
+        "over a decade of physician-specific financial wisdom.\n\n"
+        "1. **You ask a question** about student loans, disability insurance, "
+        "investing, contracts, or anything else.\n"
+        "2. **The AI searches** thousands of indexed WCI articles and pulls the "
+        "most relevant paragraphs.\n"
+        "3. **It synthesizes a tailored answer** using Google's Gemini model, "
+        "citing exactly which articles it drew from with inline `[1]` `[2]` "
+        "tags so you can verify everything.\n\n"
+        "---\n"
+        "### Why It Was Built\n"
+        "Medical school teaches you how to save lives, not how to manage a "
+        "six-figure debt load. This bot distills all of that knowledge into "
+        "a conversation you can have at 2 AM after a 14-hour shift.\n\n"
+        "*Built with ❤️ for the next generation of physicians.*"
+    )
+    st.markdown("---")
+    st.caption("Powered by LangChain · Pinecone · Gemini · Streamlit")
 
 # ── Main Chat Area ──────────────────────────────────────────────────
 st.title("🩺 White RAG Investor")
