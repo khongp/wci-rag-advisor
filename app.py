@@ -20,51 +20,101 @@ def get_base64_image(path):
 
 
 def patch_streamlit_static():
-    """Patches the installed Streamlit package static directory to replace the default
-    Streamlit favicon and inject iOS apple-touch-icon metadata link tags.
-    Runs on startup.
+    """Patches Streamlit's internal static directory at startup to:
+    1. Copy our logo to a custom non-conflicting filename to avoid Windows file locks
+    2. Create apple-touch-icon and PWA manifest using custom filenames
+    3. Inject iOS webapp meta and link tags into index.html pointing to these files
+    4. Override the shortcut icon and default HTML title
     """
     try:
-        import streamlit as st
-        import os
         import shutil
+        import json as json_lib
 
-        # 1. Find the Streamlit static assets directory
         streamlit_dir = os.path.dirname(st.__file__)
         static_dir = os.path.join(streamlit_dir, "static")
-        
+
         if not os.path.exists(static_dir):
             return
-            
-        logo_source = "app_logo.png"
+
+        logo_source = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app_logo.png")
         if not os.path.exists(logo_source):
             return
 
-        # 2. Paths inside Streamlit static folder
-        favicon_dest = os.path.join(static_dir, "favicon.png")
-        apple_icon_dest = os.path.join(static_dir, "apple-touch-icon.png")
-        apple_precomposed_dest = os.path.join(static_dir, "apple-touch-icon-precomposed.png")
+        # Use custom filenames to avoid permission errors (Errno 13) when Streamlit locks default files (favicon.png)
+        logo_dest = os.path.join(static_dir, "app_logo_wri.png")
+        shutil.copy2(logo_source, logo_dest)
+
+        # -- 2. Create Web App Manifest --
+        manifest = {
+            "name": "White RAG Investor",
+            "short_name": "White RAG Investor",
+            "description": "Financial wisdom from the White Coat Investor blog",
+            "start_url": "./",
+            "display": "standalone",
+            "background_color": "#0F172A",
+            "theme_color": "#0F172A",
+            "icons": [
+                {
+                    "src": "./app_logo_wri.png",
+                    "sizes": "192x192",
+                    "type": "image/png"
+                },
+                {
+                    "src": "./app_logo_wri.png",
+                    "sizes": "512x512",
+                    "type": "image/png"
+                }
+            ]
+        }
+        manifest_path = os.path.join(static_dir, "manifest_wri.json")
+        with open(manifest_path, "w", encoding="utf-8") as f:
+            json_lib.dump(manifest, f)
+
+        # -- 3. Patch index.html --
         index_html_path = os.path.join(static_dir, "index.html")
+        if not os.path.exists(index_html_path):
+            return
 
-        # 3. Copy our logo to overwrite Streamlit's default favicon and add apple-touch-icon assets
-        shutil.copy2(logo_source, favicon_dest)
-        shutil.copy2(logo_source, apple_icon_dest)
-        shutil.copy2(logo_source, apple_precomposed_dest)
+        with open(index_html_path, "r", encoding="utf-8") as f:
+            html = f.read()
 
-        # 4. Inject <link rel="apple-touch-icon"> in index.html if not already present
-        if os.path.exists(index_html_path):
-            with open(index_html_path, "r", encoding="utf-8") as f:
-                html_content = f.read()
+        changed = False
 
-            target_tag = '<link rel="apple-touch-icon" href="./apple-touch-icon.png" />'
-            if target_tag not in html_content:
-                # Insert right after <head> tag
-                updated_html = html_content.replace(
-                    "<head>",
-                    f"<head>\n    {target_tag}\n    <link rel=\"apple-touch-icon-precomposed\" href=\"./apple-touch-icon.png\" />"
-                )
-                with open(index_html_path, "w", encoding="utf-8") as f:
-                    f.write(updated_html)
+        # Robust head cleaning and injection
+        # Reset everything between <head> and the first <meta charset="UTF-8" /> to clean old/double injections
+        start_idx = html.find("<head>")
+        end_idx = html.find('<meta charset="UTF-8" />')
+        if start_idx != -1 and end_idx != -1:
+            injection = (
+                '<head>\n'
+                '    <link rel="apple-touch-icon" sizes="180x180" href="./app_logo_wri.png" />\n'
+                '    <link rel="apple-touch-icon-precomposed" href="./app_logo_wri.png" />\n'
+                '    <link rel="manifest" href="./manifest_wri.json" />\n'
+                '    <meta name="apple-mobile-web-app-capable" content="yes" />\n'
+                '    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />\n'
+                '    <meta name="apple-mobile-web-app-title" content="White RAG Investor" />\n'
+                '    <meta name="application-name" content="White RAG Investor" />\n'
+                '    <meta name="theme-color" content="#0F172A" />\n    '
+            )
+            new_html = html[:start_idx] + injection + html[end_idx:]
+            if new_html != html:
+                html = new_html
+                changed = True
+
+        # Redirect the shortcut icon link to use our custom logo
+        if 'href="./favicon.png"' in html:
+            html = html.replace('href="./favicon.png"', 'href="./app_logo_wri.png"')
+            changed = True
+
+        # Replace default Streamlit title
+        if "<title>Streamlit</title>" in html:
+            html = html.replace("<title>Streamlit</title>", "<title>White RAG Investor</title>")
+            changed = True
+
+        if changed:
+            with open(index_html_path, "w", encoding="utf-8") as f:
+                f.write(html)
+
     except Exception as e:
         print(f"Failed to patch Streamlit static directory: {e}")
 
