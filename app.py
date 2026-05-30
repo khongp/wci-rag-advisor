@@ -19,6 +19,56 @@ def get_base64_image(path):
         return ""
 
 
+def patch_streamlit_static():
+    """Patches the installed Streamlit package static directory to replace the default
+    Streamlit favicon and inject iOS apple-touch-icon metadata link tags.
+    Runs on startup.
+    """
+    try:
+        import streamlit as st
+        import os
+        import shutil
+
+        # 1. Find the Streamlit static assets directory
+        streamlit_dir = os.path.dirname(st.__file__)
+        static_dir = os.path.join(streamlit_dir, "static")
+        
+        if not os.path.exists(static_dir):
+            return
+            
+        logo_source = "app_logo.png"
+        if not os.path.exists(logo_source):
+            return
+
+        # 2. Paths inside Streamlit static folder
+        favicon_dest = os.path.join(static_dir, "favicon.png")
+        apple_icon_dest = os.path.join(static_dir, "apple-touch-icon.png")
+        apple_precomposed_dest = os.path.join(static_dir, "apple-touch-icon-precomposed.png")
+        index_html_path = os.path.join(static_dir, "index.html")
+
+        # 3. Copy our logo to overwrite Streamlit's default favicon and add apple-touch-icon assets
+        shutil.copy2(logo_source, favicon_dest)
+        shutil.copy2(logo_source, apple_icon_dest)
+        shutil.copy2(logo_source, apple_precomposed_dest)
+
+        # 4. Inject <link rel="apple-touch-icon"> in index.html if not already present
+        if os.path.exists(index_html_path):
+            with open(index_html_path, "r", encoding="utf-8") as f:
+                html_content = f.read()
+
+            target_tag = '<link rel="apple-touch-icon" href="./apple-touch-icon.png" />'
+            if target_tag not in html_content:
+                # Insert right after <head> tag
+                updated_html = html_content.replace(
+                    "<head>",
+                    f"<head>\n    {target_tag}\n    <link rel=\"apple-touch-icon-precomposed\" href=\"./apple-touch-icon.png\" />"
+                )
+                with open(index_html_path, "w", encoding="utf-8") as f:
+                    f.write(updated_html)
+    except Exception as e:
+        print(f"Failed to patch Streamlit static directory: {e}")
+
+
 def auto_sync():
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     sync_file = os.path.join(BASE_DIR, "last_scrape_time.txt")
@@ -252,6 +302,9 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+# Patch Streamlit's internal static folder for custom logo & iOS Home Screen support
+patch_streamlit_static()
 
 # Daily sync
 auto_sync()
