@@ -38,9 +38,11 @@ def get_rag_chain():
     vector_store = PineconeVectorStore.from_existing_index(
         index_name=PINECONE_INDEX_NAME, embedding=embeddings
     )
+    
+    # Retrieve k=8 documents initially to support local keyword re-ranking
     retriever = vector_store.as_retriever(
         search_type="mmr",
-        search_kwargs={"k": 4, "fetch_k": 20, "lambda_mult": 0.5}
+        search_kwargs={"k": 8, "fetch_k": 20, "lambda_mult": 0.5}
     )
 
     # Temperature at 0.0 to minimize hallucination outside WCI data
@@ -50,6 +52,8 @@ def get_rag_chain():
         "You are a financial advisor assistant based strictly on the principles and content "
         "of the White Coat Investor (WCI) blog.\n"
         "You have access to knowledge retrieved directly from the White Coat Investor blog.\n\n"
+        "RESPONSE STYLE INSTRUCTION:\n"
+        "{response_instruction}\n\n"
         "INSTRUCTIONS:\n"
         "1. Answer the user's question with useful, actionable advice. If the user has shared "
         "personal details (specialty, career stage, goals, family situation) in the conversation, "
@@ -66,7 +70,7 @@ def get_rag_chain():
         "7. At the end of your response, append a 'Recommended WCI Hubs' section with 1-2 "
         "matching URLs from the dictionary below.\n"
         "8. After the hubs, add a 'You might also want to ask:' section with 2-3 natural "
-        "follow-up questions as a bulleted list.\n\n"
+        "follow-up questions as a bulleted list. Keep this section at the very end.\n\n"
         "Official WCI Hub Dictionary:\n"
         "- Disability Insurance: https://www.whitecoatinvestor.com/what-you-need-to-know-about-disability-insurance/\n"
         "- Student Loans: https://www.whitecoatinvestor.com/ultimate-guide-to-student-loan-debt-management-for-doctors/\n"
@@ -98,6 +102,64 @@ def get_rag_chain():
     return chain, retriever, llm, vector_store
 
 
+def check_topic_guardrail(question, llm):
+    """Classifies if a question is relevant to personal finance, career, taxes, investing,
+    contracts, or high-earning professional/physician topics based on the White Coat Investor scope.
+    
+    Returns True if off-topic, False if on-topic.
+    """
+    guardrail_prompt = ChatPromptTemplate.from_messages([
+        ("system",
+         "You are a gatekeeper classifier for a personal finance chatbot based on the White Coat Investor blog. "
+         "Determine if the user's input is related to personal finance, investing, taxes, insurance, "
+         "careers for doctors/high earners, estate planning, student loans, or similar financial topics. "
+         "Also allow general conversational pleasantries (like 'hello', 'thank you', 'hi'). "
+         "If the query is completely off-topic (e.g. coding help, recipes, creative writing, science queries "
+         "unrelated to finance, history, politics), reply with 'OFF_TOPIC'. Otherwise, reply with 'ON_TOPIC'. "
+         "Output ONLY the single word: OFF_TOPIC or ON_TOPIC."),
+        ("human", "User Input: {question}")
+    ])
+    
+    guardrail_chain = guardrail_prompt | llm | StrOutputParser()
+    try:
+        result = guardrail_chain.invoke({"question": question})
+        return "OFF_TOPIC" in result.upper()
+    except Exception:
+        # Fallback to assuming on-topic if API fails
+        return False
+
+
+def rank_by_keyword_overlap(docs, query):
+    """Reranks retrieved documents based on keyword match density,
+    giving extra weight to important financial acronyms.
+    """
+    import re
+    # Extract clean terms from query (lowercase, alpha-only)
+    query_terms = re.findall(r'\b\w{2,}\b', query.lower())
+    if not query_terms:
+        return docs[:4]
+    
+    # Financial acronyms to boost
+    ACRONYMS = {"pslf", "roth", "hsa", "save", "repaye", "ira", "pgy", "401k", "403b", "529", "backdoor", "megabackdoor"}
+    
+    scored_docs = []
+    for doc in docs:
+        content = doc.page_content.lower()
+        score = 0
+        for term in query_terms:
+            count = content.count(term)
+            if term in ACRONYMS:
+                # High weight for acronyms
+                score += count * 5.0
+            else:
+                score += count * 1.0
+        scored_docs.append((doc, score))
+        
+    # Sort by overlap score descending
+    scored_docs.sort(key=lambda x: x[1], reverse=True)
+    return [doc for doc, _ in scored_docs[:4]]
+
+
 def rewrite_query(question, chat_history, llm):
     """Condenses a follow-up question + chat history into a standalone search query.
 
@@ -127,40 +189,60 @@ def rewrite_query(question, chat_history, llm):
 
 
 def retrieve_context(retriever, question, chat_history, llm):
-    """Performs query rewriting + retrieval.
+    """Performs query classification, rewriting, retrieval, and local keyword boosting.
 
     Returns:
         context (str): Formatted context string for the LLM prompt.
         sources (list): Deduplicated source metadata.
         raw_texts (list): Per-chunk metadata for the expander UI.
         confidence (str): 'high', 'moderate', or 'low' based on source diversity.
+        is_off_topic (bool): True if the guardrail flagged the query.
     """
+    # 1. Run off-topic guardrail classification
+    if check_topic_guardrail(question, llm):
+        return "", [], [], "low", True
+
+    # 2. Rewrite query based on conversational context
     search_query = rewrite_query(question, chat_history, llm)
 
+    # 3. Retrieve k=8 documents from vector store (MMR search)
     docs = retriever.invoke(search_query)
+
+    # 4. Perform local keyword overlap re-ranking to prioritize matching terms
+    reranked_docs = rank_by_keyword_overlap(docs, search_query)
 
     context_parts = []
     sources = []
     source_map = {}
     raw_texts = []
 
-    for doc in docs:
+    for doc in reranked_docs:
         url = doc.metadata.get("source", "Unknown")
         title = doc.metadata.get("title", url)
+        publish_date = doc.metadata.get("publish_date", "")
+        
+        year = ""
+        if publish_date:
+            year = publish_date.split("-")[0]
 
         if url not in source_map:
             source_map[url] = len(sources) + 1
-            sources.append({"id": source_map[url], "title": title, "url": url})
+            sources.append({"id": source_map[url], "title": title, "url": url, "year": year})
 
         source_id = source_map[url]
-        context_parts.append(f"[Source {source_id}: {title}]\n{doc.page_content}")
+        date_suffix = f" ({year})" if year else ""
+        context_parts.append(f"[Source {source_id}: {title}{date_suffix}]\n{doc.page_content}")
         raw_texts.append({
-            "id": source_id, "title": title, "url": url, "content": doc.page_content
+            "id": source_id,
+            "title": title,
+            "url": url,
+            "content": doc.page_content,
+            "year": year
         })
 
     context = "\n\n".join(context_parts)
 
-    # Confidence heuristic: more unique source articles = higher confidence
+    # Confidence heuristic: unique source count
     unique_sources = len(source_map)
     if unique_sources >= 3:
         confidence = "high"
@@ -169,15 +251,16 @@ def retrieve_context(retriever, question, chat_history, llm):
     else:
         confidence = "low"
 
-    return context, sources, raw_texts, confidence
+    return context, sources, raw_texts, confidence, False
 
 
-def stream_answer(chain, context, question, chat_history):
+def stream_answer(chain, context, question, chat_history, response_instruction):
     """Returns a streaming generator for the LLM response."""
     return chain.stream({
         "chat_history": chat_history,
         "context": context,
         "input": question,
+        "response_instruction": response_instruction,
     })
 
 

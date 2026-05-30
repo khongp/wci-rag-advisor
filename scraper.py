@@ -55,9 +55,9 @@ def scrape_article(url):
     """Fallback if needed, though most CDNs block direct request."""
     return None
 
-def process_and_store(url, title, content, vector_store):
-    """Chunks the text and stores it in ChromaDB."""
-    print(f"Vectorizing: {title}")
+def process_and_store(url, title, content, vector_store, publish_date=None):
+    """Chunks the text and stores it in Pinecone."""
+    print(f"Vectorizing: {title} ({publish_date if publish_date else 'No date'})")
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1500,
         chunk_overlap=250,
@@ -66,7 +66,12 @@ def process_and_store(url, title, content, vector_store):
     chunks = text_splitter.split_text(content)
     
     # Optional metadata
-    metadatas = [{"source": url, "title": title} for _ in chunks]
+    metadatas = []
+    for _ in chunks:
+        meta = {"source": url, "title": title}
+        if publish_date:
+            meta["publish_date"] = publish_date
+        metadatas.append(meta)
     
     # Store in Vector DB
     vector_store.add_texts(texts=chunks, metadatas=metadatas)
@@ -111,6 +116,20 @@ def fetch_from_feed(feed_url, vector_store, processed, max_pages=1):
                 continue
                 
             print(f"New article found: {title}")
+            
+            # Extract publication date
+            publish_date = None
+            if hasattr(entry, "published_parsed") and entry.published_parsed:
+                try:
+                    publish_date = time.strftime("%Y-%m-%d", entry.published_parsed)
+                except Exception:
+                    pass
+            elif hasattr(entry, "updated_parsed") and entry.updated_parsed:
+                try:
+                    publish_date = time.strftime("%Y-%m-%d", entry.updated_parsed)
+                except Exception:
+                    pass
+            
             raw_html = ""
             if "content" in entry:
                 raw_html = entry.content[0].value
@@ -119,7 +138,7 @@ def fetch_from_feed(feed_url, vector_store, processed, max_pages=1):
                     
             if raw_html:
                 content = extract_text_from_html(raw_html)
-                process_and_store(url, title, content, vector_store)
+                process_and_store(url, title, content, vector_store, publish_date=publish_date)
                 processed.add(url)
                 new_count += 1
             # Sleep to be polite to the server
