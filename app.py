@@ -381,46 +381,21 @@ with st.sidebar:
     st.caption("Powered by LangChain · Pinecone · Gemini · Streamlit")
 
 # -- Main Chat Area --
-logo_img_html = ""
+# Inject iOS Web App "Add to Home Screen" icon
 if os.path.exists("app_logo.png"):
     img_b64 = get_base64_image("app_logo.png")
     if img_b64:
-        logo_img_html = f'<img src="data:image/png;base64,{img_b64}" class="brand-logo-img" />'
+        st.markdown(
+            f'<link rel="apple-touch-icon" href="data:image/png;base64,{img_b64}" />',
+            unsafe_allow_html=True
+        )
 
-# Adjust style for side-by-side flex layout if logo is present
-if logo_img_html:
-    st.markdown(f"""
-    <style>
-        .brand-header {{
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            gap: 24px !important;
-            text-align: left !important;
-        }}
-        .brand-logo-img {{
-            width: 80px !important;
-            height: 80px !important;
-            border-radius: 16px !important;
-            border: 1px solid rgba(255, 255, 255, 0.15) !important;
-            flex-shrink: 0 !important;
-        }}
-    </style>
-    <div class="brand-header">
-        {logo_img_html}
-        <div>
-            <div class="brand-title" style="margin: 0;">White RAG Investor</div>
-            <div class="brand-subtitle" style="margin-top: 4px;">Financial wisdom from the White Coat Investor blog, at your fingertips.</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown("""
-    <div class="brand-header" style="text-align: center;">
-        <div class="brand-title">White RAG Investor</div>
-        <div class="brand-subtitle" style="margin-top: 4px;">Financial wisdom from the White Coat Investor blog, at your fingertips.</div>
-    </div>
-    """, unsafe_allow_html=True)
+st.markdown("""
+<div class="brand-header" style="text-align: center;">
+    <div class="brand-title">White RAG Investor</div>
+    <div class="brand-subtitle" style="margin-top: 4px;">Financial wisdom from the White Coat Investor blog, at your fingertips.</div>
+</div>
+""", unsafe_allow_html=True)
 
 st.info(
     "**Disclaimer:** This AI assistant is for informational and educational purposes only. "
