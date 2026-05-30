@@ -119,6 +119,111 @@ def patch_streamlit_static():
         print(f"Failed to patch Streamlit static directory: {e}")
 
 
+def patch_streamlit_tornado():
+    """Monkey-patches Streamlit's Tornado StaticFileHandler to dynamically serve:
+    1. A custom manifest_wri.json and manifest.json
+    2. The custom logo for app_logo_wri.png, apple-touch-icon.png, favicon.png
+    3. An in-memory patched index.html with iOS mobile web app headers and title
+    This ensures that iOS Safari Home Screen icon and name work on Streamlit Cloud
+    without needing write permissions to site-packages.
+    """
+    try:
+        from streamlit.web.server.routes import StaticFileHandler
+        import json as json_lib
+
+        if hasattr(StaticFileHandler, "_wri_patched"):
+            return
+
+        original_get = StaticFileHandler.get
+
+        async def custom_get(self, path: str, include_body: bool = True):
+            clean_path = path.strip("/")
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            logo_path = os.path.join(base_dir, "app_logo.png")
+
+            # 1. Dynamically serve Web App Manifest
+            if clean_path in ["manifest.json", "manifest_wri.json"]:
+                self.set_header("Content-Type", "application/json; charset=UTF-8")
+                self.set_header("Cache-Control", "no-cache")
+                manifest_data = {
+                    "name": "White RAG Investor",
+                    "short_name": "White RAG Investor",
+                    "description": "Financial wisdom from the White Coat Investor blog",
+                    "start_url": "./",
+                    "display": "standalone",
+                    "background_color": "#0F172A",
+                    "theme_color": "#0F172A",
+                    "icons": [
+                        {
+                            "src": "./app_logo_wri.png",
+                            "sizes": "192x192",
+                            "type": "image/png"
+                        },
+                        {
+                            "src": "./app_logo_wri.png",
+                            "sizes": "512x512",
+                            "type": "image/png"
+                        }
+                    ]
+                }
+                self.write(json_lib.dumps(manifest_data))
+                return
+
+            # 2. Dynamically serve custom logo/icons
+            if clean_path in ["app_logo_wri.png", "apple-touch-icon.png", "apple-touch-icon-precomposed.png", "favicon.png"]:
+                if os.path.exists(logo_path):
+                    self.set_header("Content-Type", "image/png")
+                    self.set_header("Cache-Control", "public, max-age=3600")
+                    with open(logo_path, "rb") as f:
+                        self.write(f.read())
+                    return
+
+            # 3. Intercept index.html and inject iOS tags
+            if clean_path == "" or clean_path == "index.html":
+                index_path = os.path.join(self.root, "index.html")
+                if os.path.exists(index_path):
+                    with open(index_path, "r", encoding="utf-8") as f:
+                        html = f.read()
+
+                    # Inject header tags if they are not already there
+                    if "manifest_wri.json" not in html and "manifest.json" not in html:
+                        injection = (
+                            '\n    <link rel="apple-touch-icon" sizes="180x180" href="./app_logo_wri.png" />'
+                            '\n    <link rel="apple-touch-icon-precomposed" href="./app_logo_wri.png" />'
+                            '\n    <link rel="manifest" href="./manifest_wri.json" />'
+                            '\n    <meta name="apple-mobile-web-app-capable" content="yes" />'
+                            '\n    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />'
+                            '\n    <meta name="apple-mobile-web-app-title" content="White RAG Investor" />'
+                            '\n    <meta name="application-name" content="White RAG Investor" />'
+                            '\n    <meta name="theme-color" content="#0F172A" />'
+                        )
+                        start_idx = html.find("<head>")
+                        end_idx = html.find('<meta charset="UTF-8" />')
+                        if start_idx != -1 and end_idx != -1:
+                            html = html[:start_idx] + '<head>' + injection + html[end_idx:]
+                        else:
+                            html = html.replace("<head>", "<head>" + injection, 1)
+
+                    if 'href="./favicon.png"' in html:
+                        html = html.replace('href="./favicon.png"', 'href="./app_logo_wri.png"')
+
+                    if "<title>Streamlit</title>" in html:
+                        html = html.replace("<title>Streamlit</title>", "<title>White RAG Investor</title>")
+
+                    self.set_header("Content-Type", "text/html; charset=UTF-8")
+                    self.set_header("Cache-Control", "no-cache")
+                    self.write(html)
+                    return
+
+            return await original_get(self, path, include_body)
+
+        StaticFileHandler.get = custom_get
+        StaticFileHandler._wri_patched = True
+
+    except Exception as e:
+        print(f"Failed to monkey-patch Streamlit Tornado StaticFileHandler: {e}")
+
+
 def auto_sync():
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     sync_file = os.path.join(BASE_DIR, "last_scrape_time.txt")
@@ -355,6 +460,7 @@ st.markdown("""
 
 # Patch Streamlit's internal static folder for custom logo & iOS Home Screen support
 patch_streamlit_static()
+patch_streamlit_tornado()
 
 # Daily sync
 auto_sync()
