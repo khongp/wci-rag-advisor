@@ -103,7 +103,7 @@ CONFIDENCE_LABELS = {
 # Request schema for chat endpoint
 class ChatRequest(BaseModel):
     message: str
-    history: List[Dict[str, str]]  # list of {"role": "user"|"assistant", "content": "..."}
+    history: List[Dict[str, Any]]  # list of {"role": "user"|"assistant", "content": "..."}
     response_mode: str = "Standard"
 
 # Request schema for feedback endpoint
