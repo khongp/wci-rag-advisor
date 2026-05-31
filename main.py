@@ -196,6 +196,8 @@ async def chat_endpoint(request: ChatRequest):
             retriever, prompt, chat_history_str, llm
         )
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Context retrieval failed: {e}")
 
     # Generate response
