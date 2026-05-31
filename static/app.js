@@ -3,6 +3,23 @@ let chatHistory = [];
 let questionCount = 0;
 const MAX_QUESTIONS = 25;
 
+// Safe markdown parsing wrapper
+function parseMarkdown(text) {
+    if (typeof marked !== 'undefined') {
+        return marked.parse(text);
+    }
+    // Fallback basic text formatter if CDN fails
+    console.warn('Marked library not loaded. Using fallback plain text formatter.');
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>')
+        .replace(/\n/g, '<br>');
+}
+
 // DOM Elements
 const sidebar = document.getElementById('sidebar');
 const sidebarOverlay = document.getElementById('sidebar-overlay');
@@ -343,7 +360,7 @@ function renderMessageBubble(role, content, options = {}) {
     
     const textNode = document.createElement('div');
     textNode.className = 'markdown-content';
-    textNode.innerHTML = marked.parse(content);
+    textNode.innerHTML = parseMarkdown(content);
     bubble.appendChild(textNode);
     
     // Add confidence tag (if assistant message and on-topic)
@@ -610,7 +627,7 @@ async function handleFormSubmit(e) {
                     } else if (currentEvent === 'token') {
                         const token = JSON.parse(dataStr);
                         fullResponseText += token;
-                        markdownDiv.innerHTML = marked.parse(fullResponseText);
+                        markdownDiv.innerHTML = parseMarkdown(fullResponseText);
                         scrollToBottom();
                     } else if (currentEvent === 'follow_ups') {
                         followUps = JSON.parse(dataStr);
@@ -631,7 +648,7 @@ async function handleFormSubmit(e) {
         if (match !== -1) {
             cleanedText = fullResponseText.substring(0, match).trim();
             // Update bubble HTML with cleaned text
-            markdownDiv.innerHTML = marked.parse(cleanedText);
+            markdownDiv.innerHTML = parseMarkdown(cleanedText);
         }
 
         // Increment question count
