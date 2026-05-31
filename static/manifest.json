@@ -4,18 +4,21 @@
   "description": "Financial wisdom from the White Coat Investor blog",
   "start_url": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#0F172A",
   "theme_color": "#0F172A",
   "icons": [
     {
-      "src": "./app/static/app_logo.png",
+      "src": "app_logo.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "./app/static/app_logo.png",
+      "src": "app_logo.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

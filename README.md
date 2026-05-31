@@ -1,3 +1,13 @@
+---
+title: White RAG Investor
+emoji: 🩺
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # 🩺 White RAG Investor
 
 > *Financial wisdom for physicians still in the rags phase of their white-coat journey.*
@@ -21,6 +31,7 @@ The name is a double play on words:
 - **Thumbs up/down feedback** — Help improve answer quality during beta testing.
 - **Daily auto-sync** — New WCI articles are automatically ingested every 24 hours.
 - **Cloud-safe deduplication** — Pinecone metadata checks prevent duplicate vectors even on ephemeral filesystems.
+- **PWA Capabilities** — Installable to your iPhone/Android home screen with custom tattered doctor coat branding.
 
 ---
 
@@ -28,7 +39,8 @@ The name is a double play on words:
 
 | Component | Technology |
 |-----------|-----------|
-| **Frontend** | Streamlit |
+| **Frontend** | Vanilla JS / CSS / HTML SPA (iOS PWA optimized) |
+| **Backend** | FastAPI / Python (Uvicorn) |
 | **LLM** | Google Gemini 2.5 Flash Lite |
 | **Embeddings** | Google `gemini-embedding-001` (3072-dim) |
 | **Vector DB** | Pinecone Serverless (AWS us-east-1) |
@@ -41,6 +53,7 @@ The name is a double play on words:
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Python 3.11+
 - A [Google AI Studio](https://aistudio.google.com/) API key
 - A [Pinecone](https://www.pinecone.io/) free-tier API key
@@ -63,37 +76,44 @@ cp .env.example .env
 python scraper.py --deep
 
 # Launch the app
-streamlit run app.py
+python main.py
 ```
 
-### Deploy to Streamlit Cloud
+### Deploy to Hugging Face Spaces (Docker)
 
-1. Push this repo to GitHub.
-2. Go to [share.streamlit.io](https://share.streamlit.io/) and create a new app.
-3. Select your repo, branch `main`, and main file `app.py`.
-4. In **Advanced Settings → Secrets**, paste your `.env` contents:
-   ```toml
-   GOOGLE_API_KEY = "your-key-here"
-   PINECONE_API_KEY = "your-key-here"
-   PINECONE_INDEX_NAME = "wci-index"
-   ```
-5. Click **Deploy**.
+1. Create a new Space on [Hugging Face](https://huggingface.co/new-space).
+2. Choose **Docker** as the SDK (select the `Blank` Docker template).
+3. Push this repository to your Hugging Face Space remote.
+4. Add your secrets (in **Settings → Repository secrets**):
+   * `GOOGLE_API_KEY`
+   * `PINECONE_API_KEY`
+   * `PINECONE_INDEX_NAME` (default: `wci-index`)
+   * `FEEDBACK_WEBHOOK_URL` (optional: for storing user thumbs up/down rating entries)
+5. Hugging Face will automatically build the `Dockerfile` and serve your app.
 
 ---
 
 ## 📁 Project Structure
 
 ```
-├── app.py                  # Streamlit UI, onboarding, chat loop
+├── main.py                 # FastAPI backend (API endpoints & server routing)
 ├── rag.py                  # RAG pipeline (retriever, LLM chain, prompts)
 ├── scraper.py              # WCI article ingestion engine
 ├── requirements.txt        # Python dependencies
 ├── processed_urls.json     # Dedup tracker for scraped URLs
-├── .streamlit/
-│   └── config.toml         # Custom Streamlit theme
+├── Dockerfile              # Docker container setup for Hugging Face deployment
+├── app_streamlit_backup.py # Backup of the old Streamlit UI file
+├── static/                 # Static PWA assets served at root and /static/
+│   ├── index.html          # Main SPA interface containing PWA meta headers
+│   ├── style.css           # Custom glassmorphic styling
+│   ├── app.js              # Live chat streaming & interactive loan calculator
+│   ├── sw.js               # Service Worker for standalone iOS behavior
+│   ├── manifest.json       # App configuration manifest
+│   └── app_logo.png        # Tattered coat logo icon (192x192 / 512x512)
 ├── .env                    # API keys (git-ignored)
 └── .gitignore              # Protects secrets from GitHub
 ```
+
 
 ---
 
