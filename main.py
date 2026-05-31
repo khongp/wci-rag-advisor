@@ -176,7 +176,9 @@ async def chat_endpoint(request: ChatRequest):
         response_mode = "Standard"
         
     instruction = RESPONSE_INSTRUCTIONS[response_mode]
-    chain, retriever, llm, vector_store = RAG_CHAIN
+    chain = RAG_CHAIN
+    retriever = RETRIEVER
+    llm = LLM
     
     # Build sliding window history string (last 4 messages before this prompt)
     chat_history_str = ""
