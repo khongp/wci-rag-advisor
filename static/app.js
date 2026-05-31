@@ -80,8 +80,11 @@ function initEventListeners() {
 
     // Chat Input Self-Resizing & Enter key submit
     chatInput.addEventListener('input', () => {
-        chatInput.style.height = 'auto';
-        chatInput.style.height = (chatInput.scrollHeight - 16) + 'px';
+        chatInput.style.height = '24px';
+        const scrollHeight = chatInput.scrollHeight;
+        if (scrollHeight > 24) {
+            chatInput.style.height = scrollHeight + 'px';
+        }
     });
 
     chatInput.addEventListener('keydown', (e) => {
