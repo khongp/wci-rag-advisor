@@ -1,3 +1,25 @@
+// Global error handler to display runtime errors visually for easier debugging
+window.addEventListener('error', (event) => {
+    console.error("Captured unhandled error:", event.error);
+    const errBox = document.createElement('div');
+    errBox.className = 'debug-error-box';
+    errBox.style.position = 'fixed';
+    errBox.style.bottom = '10px';
+    errBox.style.left = '10px';
+    errBox.style.right = '10px';
+    errBox.style.background = '#f87171';
+    errBox.style.color = '#fff';
+    errBox.style.padding = '12px';
+    errBox.style.borderRadius = '8px';
+    errBox.style.zIndex = '99999';
+    errBox.style.fontSize = '12px';
+    errBox.style.fontFamily = 'monospace';
+    errBox.style.boxShadow = '0 4px 20px rgba(0,0,0,0.4)';
+    errBox.style.border = '1px solid rgba(255,255,255,0.2)';
+    errBox.innerHTML = `<strong>JavaScript Error:</strong> ${event.message} <br><span style="opacity:0.8;">at ${event.filename.split('/').pop()}:${event.lineno}:${event.colno}</span>`;
+    document.body.appendChild(errBox);
+});
+
 // Safe storage helper to prevent SecurityError crashes in private browsing/strict privacy modes (e.g. Firefox)
 const safeStorage = {
     getItem(key) {
@@ -83,14 +105,19 @@ if ('serviceWorker' in navigator) {
 
 // App Initialization
 document.addEventListener('DOMContentLoaded', () => {
-    // Clear chat history and question limit count on page reload to start fresh
-    safeStorage.removeItem('wri_chat_history');
-    safeStorage.removeItem('wri_question_count');
-    
-    loadChatHistory();
-    initEventListeners();
-    fetchStarters();
-    runCalculator(); // Run initial calc
+    try {
+        // Clear chat history and question limit count on page reload to start fresh
+        safeStorage.removeItem('wri_chat_history');
+        safeStorage.removeItem('wri_question_count');
+        
+        loadChatHistory();
+        initEventListeners();
+        fetchStarters();
+        runCalculator(); // Run initial calc
+    } catch (e) {
+        console.error("Initialization error:", e);
+        throw e; // Rethrow to let global window error handler capture it visually
+    }
 });
 
 // Event Listeners
