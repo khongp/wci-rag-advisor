@@ -57,6 +57,10 @@ if ('serviceWorker' in navigator) {
 
 // App Initialization
 document.addEventListener('DOMContentLoaded', () => {
+    // Clear chat history and question limit count on page reload to start fresh
+    localStorage.removeItem('wri_chat_history');
+    localStorage.removeItem('wri_question_count');
+    
     loadChatHistory();
     initEventListeners();
     fetchStarters();
