@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wri-cache-v2';
+const CACHE_NAME = 'wri-cache-v3';
 const ASSETS = [
   '/',
   '/static/index.html',

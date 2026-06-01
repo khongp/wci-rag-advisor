@@ -193,6 +193,11 @@ function toggleSidebar() {
     sidebarOverlay.classList.toggle('active');
 }
 
+function openSidebar() {
+    sidebar.classList.add('active');
+    sidebarOverlay.classList.add('active');
+}
+
 // Load Chat History from LocalStorage
 function loadChatHistory() {
     const savedHistory = safeStorage.getItem('wri_chat_history');
@@ -216,7 +221,8 @@ function loadChatHistory() {
                     sources: msg.sources,
                     followUps: msg.followUps,
                     feedback: msg.feedback,
-                    msgIndex: idx
+                    msgIndex: idx,
+                    isWelcome: idx === 0
                 });
             });
             scrollToBottom();
@@ -230,7 +236,7 @@ function loadChatHistory() {
         content: "Welcome to **White RAG Investor** — a financial advisor trained on the entire White Coat Investor blog.\n\nAsk me anything about physician finances: student loans, disability insurance, investing, contracts, taxes, and more."
     };
     chatHistory = [welcomeMsg];
-    renderMessageBubble(welcomeMsg.role, welcomeMsg.content);
+    renderMessageBubble(welcomeMsg.role, welcomeMsg.content, { isWelcome: true });
     saveChatHistory();
 }
 
@@ -578,6 +584,32 @@ function renderMessageBubble(role, content, options = {}) {
             followupsDiv.appendChild(btn);
         });
         bubble.appendChild(followupsDiv);
+    }
+
+    // Special Calculator CTA for welcome greeting
+    if (role === 'assistant' && options.isWelcome) {
+        const welcomeCalcDiv = document.createElement('div');
+        welcomeCalcDiv.className = 'welcome-calc-container';
+        welcomeCalcDiv.style.marginTop = '1.25rem';
+        
+        const welcomeCalcBtn = document.createElement('button');
+        welcomeCalcBtn.className = 'btn btn-primary';
+        welcomeCalcBtn.style.width = 'auto';
+        welcomeCalcBtn.style.padding = '0.65rem 1.25rem';
+        welcomeCalcBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:middle;">
+                <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
+                <line x1="9" y1="22" x2="9" y2="16"></line>
+                <line x1="8" y1="6" x2="16" y2="6"></line>
+                <line x1="16" y1="14" x2="16" y2="22"></line>
+                <line x1="9" y1="14" x2="15" y2="14"></line>
+                <line x1="9" y1="10" x2="15" y2="10"></line>
+            </svg>
+            <span>Open Loan vs. Investing Calculator</span>
+        `;
+        welcomeCalcBtn.addEventListener('click', openSidebar);
+        welcomeCalcDiv.appendChild(welcomeCalcBtn);
+        bubble.appendChild(welcomeCalcDiv);
     }
 
     chatMessages.appendChild(bubble);
