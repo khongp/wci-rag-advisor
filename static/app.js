@@ -1,3 +1,29 @@
+// Safe storage helper to prevent SecurityError crashes in private browsing/strict privacy modes (e.g. Firefox)
+const safeStorage = {
+    getItem(key) {
+        try {
+            return localStorage.getItem(key);
+        } catch (e) {
+            console.warn('Storage access blocked:', e);
+            return null;
+        }
+    },
+    setItem(key, value) {
+        try {
+            localStorage.setItem(key, value);
+        } catch (e) {
+            console.warn('Storage write blocked:', e);
+        }
+    },
+    removeItem(key) {
+        try {
+            localStorage.removeItem(key);
+        } catch (e) {
+            console.warn('Storage remove blocked:', e);
+        }
+    }
+};
+
 // State Management
 let chatHistory = [];
 let questionCount = 0;
@@ -58,8 +84,8 @@ if ('serviceWorker' in navigator) {
 // App Initialization
 document.addEventListener('DOMContentLoaded', () => {
     // Clear chat history and question limit count on page reload to start fresh
-    localStorage.removeItem('wri_chat_history');
-    localStorage.removeItem('wri_question_count');
+    safeStorage.removeItem('wri_chat_history');
+    safeStorage.removeItem('wri_question_count');
     
     loadChatHistory();
     initEventListeners();
@@ -80,10 +106,10 @@ function initEventListeners() {
 
     // Select input change
     selectResponseMode.addEventListener('change', () => {
-        localStorage.setItem('wri_response_mode', selectResponseMode.value);
+        safeStorage.setItem('wri_response_mode', selectResponseMode.value);
     });
     // Load cached response mode
-    const cachedMode = localStorage.getItem('wri_response_mode');
+    const cachedMode = safeStorage.getItem('wri_response_mode');
     if (cachedMode) {
         selectResponseMode.value = cachedMode;
     }
@@ -124,11 +150,11 @@ function initEventListeners() {
     if (disclaimerBanner && btnCloseDisclaimer) {
         btnCloseDisclaimer.addEventListener('click', () => {
             disclaimerBanner.style.display = 'none';
-            localStorage.setItem('wri_disclaimer_dismissed', 'true');
+            safeStorage.setItem('wri_disclaimer_dismissed', 'true');
         });
 
         // Load disclaimer dismissed state
-        if (localStorage.getItem('wri_disclaimer_dismissed') === 'true') {
+        if (safeStorage.getItem('wri_disclaimer_dismissed') === 'true') {
             disclaimerBanner.style.display = 'none';
         }
     }
@@ -142,8 +168,8 @@ function toggleSidebar() {
 
 // Load Chat History from LocalStorage
 function loadChatHistory() {
-    const savedHistory = localStorage.getItem('wri_chat_history');
-    const savedCount = localStorage.getItem('wri_question_count');
+    const savedHistory = safeStorage.getItem('wri_chat_history');
+    const savedCount = safeStorage.getItem('wri_question_count');
     
     questionCount = savedCount ? parseInt(savedCount, 10) : 0;
     
@@ -183,8 +209,8 @@ function loadChatHistory() {
 
 // Save Chat History
 function saveChatHistory() {
-    localStorage.setItem('wri_chat_history', JSON.stringify(chatHistory));
-    localStorage.setItem('wri_question_count', questionCount.toString());
+    safeStorage.setItem('wri_chat_history', JSON.stringify(chatHistory));
+    safeStorage.setItem('wri_question_count', questionCount.toString());
 }
 
 // Reset Chat (New Chat)
@@ -192,8 +218,8 @@ function resetChat() {
     if (confirm('Are you sure you want to start a new chat? This will clear your current conversation.')) {
         chatHistory = [];
         questionCount = 0;
-        localStorage.removeItem('wri_chat_history');
-        localStorage.removeItem('wri_question_count');
+        safeStorage.removeItem('wri_chat_history');
+        safeStorage.removeItem('wri_question_count');
         chatMessages.innerHTML = '';
         startersContainer.style.display = 'block';
         loadChatHistory();
