@@ -12,7 +12,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="White RAG Investor">
-    <link rel="apple-touch-icon" href="/static/app_logo.png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     
     <!-- Web App Manifest -->
     <link rel="manifest" href="/manifest.json">
@@ -168,7 +168,7 @@
             </header>
 
             <!-- Sticky info warning -->
-            <div class="disclaimer-banner">
+            <div class="disclaimer-banner" id="disclaimer-banner">
                 <div class="disclaimer-icon">
                     <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="10"></circle>
@@ -179,6 +179,12 @@
                 <div class="disclaimer-content">
                     <strong>Disclaimer:</strong> This AI assistant is for informational and educational purposes only. It is not a certified financial planner, tax attorney, or medical professional. All advice is derived from White Coat Investor articles. Please verify critical financial decisions independently.
                 </div>
+                <button id="btn-close-disclaimer" class="btn-close-disclaimer" aria-label="Dismiss disclaimer">
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
             </div>
 
             <!-- Conversation Display Canvas -->

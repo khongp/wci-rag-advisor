@@ -86,6 +86,21 @@ def get_logo():
         return FileResponse(logo_path, media_type="image/png")
     raise HTTPException(status_code=404, detail="Logo not found")
 
+# Apple Touch Icon routing for iOS Add to Home Screen (root-level fallback)
+@app.get("/apple-touch-icon.png")
+def get_apple_touch_icon():
+    logo_path = os.path.join("static", "app_logo.png")
+    if os.path.exists(logo_path):
+        return FileResponse(logo_path, media_type="image/png")
+    raise HTTPException(status_code=404, detail="Apple Touch Icon not found")
+
+@app.get("/apple-touch-icon-precomposed.png")
+def get_apple_touch_icon_precomposed():
+    logo_path = os.path.join("static", "app_logo.png")
+    if os.path.exists(logo_path):
+        return FileResponse(logo_path, media_type="image/png")
+    raise HTTPException(status_code=404, detail="Apple Touch Icon Precomposed not found")
+
 
 # Response modes and instruction text
 RESPONSE_INSTRUCTIONS = {

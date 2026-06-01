@@ -113,6 +113,21 @@ function initEventListeners() {
 
     // Chat Submit
     chatForm.addEventListener('submit', handleFormSubmit);
+
+    // Disclaimer Close Event
+    const disclaimerBanner = document.getElementById('disclaimer-banner');
+    const btnCloseDisclaimer = document.getElementById('btn-close-disclaimer');
+    if (disclaimerBanner && btnCloseDisclaimer) {
+        btnCloseDisclaimer.addEventListener('click', () => {
+            disclaimerBanner.style.display = 'none';
+            localStorage.setItem('wri_disclaimer_dismissed', 'true');
+        });
+
+        // Load disclaimer dismissed state
+        if (localStorage.getItem('wri_disclaimer_dismissed') === 'true') {
+            disclaimerBanner.style.display = 'none';
+        }
+    }
 }
 
 // Sidebar Drawer Toggle for Mobile
@@ -131,7 +146,12 @@ function loadChatHistory() {
     if (savedHistory) {
         chatHistory = JSON.parse(savedHistory);
         if (chatHistory.length > 0) {
-            startersContainer.style.display = 'none';
+            const hasUserMessages = chatHistory.some(msg => msg.role === 'user');
+            if (hasUserMessages) {
+                startersContainer.style.display = 'none';
+            } else {
+                startersContainer.style.display = 'block';
+            }
             chatHistory.forEach((msg, idx) => {
                 renderMessageBubble(msg.role, msg.content, {
                     confidence: msg.confidence,
