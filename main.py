@@ -2,6 +2,7 @@ import os
 import json
 import re
 import time
+import threading
 from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, StreamingResponse, FileResponse
@@ -34,6 +35,35 @@ RETRIEVER = None
 LLM = None
 VECTOR_STORE = None
 
+def run_weekly_auto_sync():
+    """Runs a background check to update articles from the WCI sitemap/feed weekly."""
+    try:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        sync_file = os.path.join(base_dir, "last_scrape_time.txt")
+        current_time = time.time()
+        
+        last_run = 0
+        if os.path.exists(sync_file):
+            with open(sync_file, "r") as f:
+                try:
+                    last_run = float(f.read().strip())
+                except ValueError:
+                    pass
+        
+        # 604,800 seconds = 7 days
+        if current_time - last_run > 604800:
+            print("Auto-sync: Check and update articles starting in background...")
+            from scraper import run_rss_update
+            run_rss_update()
+            with open(sync_file, "w") as f:
+                f.write(str(current_time))
+            print("Auto-sync completed successfully.")
+        else:
+            days_left = (604800 - (current_time - last_run)) / 86400
+            print(f"Auto-sync: Skipping background update (last run was {7 - days_left:.2f} days ago, next run in {days_left:.2f} days).")
+    except Exception as e:
+        print(f"Auto-sync failed: {e}")
+
 # Initialize RAG components on startup
 @app.on_event("startup")
 def startup_event():
@@ -46,6 +76,9 @@ def startup_event():
         print(f"CRITICAL ERROR initializing RAG chain: {e}")
         # Note: In production containers, we print the error, but we don't halt startup
         # so the server can display a nice friendly error on the frontend rather than crash.
+    
+    # Run auto-sync background thread
+    threading.Thread(target=run_weekly_auto_sync, daemon=True).start()
 
 # Serve static files from the /static folder (HTML, CSS, JS, logo, manifest, sw.js)
 # We mount this at /static. We will handle routing "/" manually to serve index.html.

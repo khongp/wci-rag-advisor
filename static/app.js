@@ -121,6 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadChatHistory();
         initEventListeners();
         fetchStarters();
+        initCalculator();
     } catch (e) {
         console.error("Initialization error:", e);
         throw e; // Rethrow to let global window error handler capture it visually
@@ -750,5 +751,114 @@ async function handleFormSubmit(e) {
         statusDiv.remove();
         renderMessageBubble('assistant', `*Failed to connect to assistant: ${err.message}. Please check your connection or LLM status.*`);
         scrollToBottom();
+    }
+}
+
+// Sidebar Loan Payoff vs. Investing Calculator
+function initCalculator() {
+    const calcHeader = document.getElementById('calc-header');
+    const calcBody = document.getElementById('calc-body');
+    
+    if (!calcHeader || !calcBody) return;
+    
+    const toggleIcon = calcHeader.querySelector('.toggle-icon');
+    
+    // Toggle expand/collapse
+    calcHeader.addEventListener('click', () => {
+        calcBody.classList.toggle('expanded');
+        if (toggleIcon) {
+            toggleIcon.classList.toggle('rotated');
+        }
+    });
+    
+    // Listen for inputs
+    const inputs = ['calc-loan-balance', 'calc-loan-rate', 'calc-inv-return', 'calc-extra-pmt'];
+    inputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', calculateLoanVsInvesting);
+        }
+    });
+    
+    // Run initial calculation
+    calculateLoanVsInvesting();
+}
+
+function calculateLoanVsInvesting() {
+    const loanBalanceVal = document.getElementById('calc-loan-balance').value;
+    const loanRateVal = document.getElementById('calc-loan-rate').value;
+    const invReturnVal = document.getElementById('calc-inv-return').value;
+    const extraPmtVal = document.getElementById('calc-extra-pmt').value;
+    
+    const loanBalance = parseFloat(loanBalanceVal) || 0;
+    const loanRate = (parseFloat(loanRateVal) || 0) / 100.0;
+    const invReturn = (parseFloat(invReturnVal) || 0) / 100.0;
+    const extraPmt = parseFloat(extraPmtVal) || 0;
+    
+    const resultsDiv = document.getElementById('calc-results');
+    const payoffPeriodEl = document.getElementById('res-payoff-period');
+    const interestPaidEl = document.getElementById('res-interest-paid');
+    const invValEl = document.getElementById('res-inv-val');
+    const verdictEl = document.getElementById('res-verdict');
+    
+    if (!resultsDiv || !payoffPeriodEl || !interestPaidEl || !invValEl || !verdictEl) return;
+    
+    if (extraPmt <= 0 || loanBalance <= 0) {
+        payoffPeriodEl.textContent = '-';
+        interestPaidEl.textContent = '-';
+        invValEl.textContent = '-';
+        verdictEl.className = 'calc-badge';
+        verdictEl.textContent = '';
+        verdictEl.style.display = 'none';
+        return;
+    }
+    
+    const r_m = loanRate / 12.0;
+    let monthsToPay;
+    if (r_m === 0) {
+        monthsToPay = loanBalance / extraPmt;
+    } else {
+        const val = 1.0 - (loanBalance * r_m) / extraPmt;
+        if (val > 0) {
+            monthsToPay = -Math.log(val) / Math.log(1.0 + r_m);
+        } else {
+            monthsToPay = Infinity;
+        }
+    }
+    
+    if (monthsToPay !== Infinity && !isNaN(monthsToPay)) {
+        const yearsToPay = monthsToPay / 12.0;
+        const totalPaid = extraPmt * monthsToPay;
+        const interestPaid = totalPaid - loanBalance;
+        
+        const r_inv_m = invReturn / 12.0;
+        let investedVal;
+        if (r_inv_m === 0) {
+            investedVal = extraPmt * monthsToPay;
+        } else {
+            investedVal = extraPmt * ((Math.pow(1.0 + r_inv_m, monthsToPay) - 1.0) / r_inv_m);
+        }
+        
+        const netDiff = investedVal - totalPaid - interestPaid;
+        
+        payoffPeriodEl.textContent = `${yearsToPay.toFixed(1)} years`;
+        interestPaidEl.textContent = `$${Math.round(interestPaid).toLocaleString()}`;
+        invValEl.textContent = `$${Math.round(investedVal).toLocaleString()}`;
+        verdictEl.style.display = 'block';
+        
+        if (netDiff > 0) {
+            verdictEl.className = 'calc-badge success';
+            verdictEl.textContent = `Investing wins by: $${Math.round(netDiff).toLocaleString()}`;
+        } else {
+            verdictEl.className = 'calc-badge info';
+            verdictEl.textContent = `Paying off loan wins by: $${Math.round(-netDiff).toLocaleString()}`;
+        }
+    } else {
+        payoffPeriodEl.textContent = 'Never';
+        interestPaidEl.textContent = '-';
+        invValEl.textContent = '-';
+        verdictEl.style.display = 'block';
+        verdictEl.className = 'calc-badge error';
+        verdictEl.textContent = 'Payment too low to cover interest';
     }
 }
