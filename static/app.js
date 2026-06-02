@@ -69,30 +69,55 @@ function parseMarkdown(text) {
 }
 
 // DOM Elements
-const sidebar = document.getElementById('sidebar');
-const sidebarOverlay = document.getElementById('sidebar-overlay');
-const sidebarToggle = document.getElementById('sidebar-toggle');
-const btnNewChat = document.getElementById('btn-new-chat');
-const btnExportChat = document.getElementById('btn-export-chat');
-const btnCopySummary = document.getElementById('btn-copy-summary');
-const selectResponseMode = document.getElementById('select-response-mode');
+let sidebar;
+let sidebarOverlay;
+let sidebarToggle;
+let btnNewChat;
+let btnExportChat;
+let btnCopySummary;
+let selectResponseMode;
 
 // Calculator Elements
-const calcHeader = document.getElementById('calc-header');
-const calcBody = document.getElementById('calc-body');
-const calcToggleIcon = document.getElementById('calc-toggle-icon');
-const calcLoanBalance = document.getElementById('calc-loan-balance');
-const calcLoanRate = document.getElementById('calc-loan-rate');
-const calcInvReturn = document.getElementById('calc-inv-return');
-const calcExtraPmt = document.getElementById('calc-extra-pmt');
-const calcResults = document.getElementById('calc-results');
+let calcHeader;
+let calcBody;
+let calcToggleIcon;
+let calcLoanBalance;
+let calcLoanRate;
+let calcInvReturn;
+let calcExtraPmt;
+let calcResults;
 
 // Chat Elements
-const chatMessages = document.getElementById('chat-messages');
-const chatForm = document.getElementById('chat-form');
-const chatInput = document.getElementById('chat-input');
-const startersContainer = document.getElementById('conversation-starters');
-const startersGrid = document.getElementById('starters-grid');
+let chatMessages;
+let chatForm;
+let chatInput;
+let startersContainer;
+let startersGrid;
+
+function initDOMElements() {
+    sidebar = document.getElementById('sidebar');
+    sidebarOverlay = document.getElementById('sidebar-overlay');
+    sidebarToggle = document.getElementById('sidebar-toggle');
+    btnNewChat = document.getElementById('btn-new-chat');
+    btnExportChat = document.getElementById('btn-export-chat');
+    btnCopySummary = document.getElementById('btn-copy-summary');
+    selectResponseMode = document.getElementById('select-response-mode');
+
+    calcHeader = document.getElementById('calc-header');
+    calcBody = document.getElementById('calc-body');
+    calcToggleIcon = document.getElementById('calc-toggle-icon');
+    calcLoanBalance = document.getElementById('calc-loan-balance');
+    calcLoanRate = document.getElementById('calc-loan-rate');
+    calcInvReturn = document.getElementById('calc-inv-return');
+    calcExtraPmt = document.getElementById('calc-extra-pmt');
+    calcResults = document.getElementById('calc-results');
+
+    chatMessages = document.getElementById('chat-messages');
+    chatForm = document.getElementById('chat-form');
+    chatInput = document.getElementById('chat-input');
+    startersContainer = document.getElementById('conversation-starters');
+    startersGrid = document.getElementById('starters-grid');
+}
 
 // PWA Service Worker Registration
 if ('serviceWorker' in navigator) {
@@ -106,6 +131,8 @@ if ('serviceWorker' in navigator) {
 // App Initialization
 document.addEventListener('DOMContentLoaded', () => {
     try {
+        initDOMElements();
+        
         // Clear chat history and question limit count on page reload to start fresh
         safeStorage.removeItem('wri_chat_history');
         safeStorage.removeItem('wri_question_count');
@@ -356,7 +383,8 @@ function runCalculator() {
             }
 
             const earnings = investedVal - totalPaid;
-            const netDiff = investedVal - totalPaid - interestPaid;
+            const loanFutureValue = balance * Math.pow(1.0 + r_m, monthsToPay);
+            const netDiff = investedVal - loanFutureValue;
 
             // Format numbers to match Streamlit formatting
             const formatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
