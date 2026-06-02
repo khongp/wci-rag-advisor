@@ -84,7 +84,7 @@ html, body {
 }
 
 .sidebar-header {
-    padding: 1.5rem;
+    padding: calc(1.5rem + env(safe-area-inset-top, 0px)) 1.5rem 1.5rem 1.5rem;
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -429,6 +429,8 @@ html, body {
 .chat-messages-container {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
+    max-width: 100%;
     padding: 2rem 1.5rem;
     display: flex;
     flex-direction: column;
@@ -439,6 +441,8 @@ html, body {
 .message-bubble {
     max-width: 800px;
     width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     margin: 0 auto;
     border-radius: 20px;
     border: 1px solid rgba(255, 255, 255, 0.04);
@@ -446,6 +450,9 @@ html, body {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     transition: var(--transition-smooth);
     animation: bubbleSlideIn 0.3s ease-out;
+    word-wrap: break-word;
+    word-break: break-word;
+    overflow-wrap: break-word;
 }
 
 .message-bubble:hover {
@@ -484,6 +491,23 @@ html, body {
     font-size: 0.95rem;
     line-height: 1.6;
     color: var(--text-primary);
+    word-wrap: break-word;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+}
+
+.markdown-content pre, 
+.markdown-content code {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    word-break: break-all;
+}
+
+.markdown-content table {
+    max-width: 100%;
+    overflow-x: auto;
+    display: block;
 }
 
 .markdown-content p {
@@ -699,7 +723,7 @@ html, body {
 
 /* Bottom Chat Input Form Area */
 .chat-input-area {
-    padding: 1.5rem;
+    padding: 1.5rem 1.5rem calc(1.5rem + env(safe-area-inset-bottom, 0px)) 1.5rem;
     background: linear-gradient(180deg, transparent 0%, var(--bg-chat) 30%);
     z-index: 10;
 }
@@ -935,7 +959,7 @@ html, body {
 @media (max-width: 991px) {
     .sidebar-toggle {
         display: flex;
-        top: 11px;
+        top: calc(11px + env(safe-area-inset-top, 0px));
         left: 0.75rem;
         width: 38px;
         height: 38px;
@@ -943,7 +967,8 @@ html, body {
     }
     
     .chat-header {
-        height: 60px;
+        height: calc(60px + env(safe-area-inset-top, 0px));
+        padding-top: env(safe-area-inset-top, 0px);
         padding-left: 4rem; /* Make room for toggle button */
         justify-content: flex-start;
     }
@@ -1006,7 +1031,7 @@ html, body {
     }
 
     .chat-input-area {
-        padding: 0.75rem;
+        padding: 0.75rem 0.75rem calc(0.75rem + env(safe-area-inset-bottom, 0px)) 0.75rem;
     }
 
     .starters-container {
