@@ -37,8 +37,7 @@
 }
 
 html, body {
-    height: 100vh;
-    height: 100dvh;
+    height: 100%;
     width: 100%;
     background-color: var(--bg-main);
     color: var(--text-primary);
@@ -67,8 +66,7 @@ html, body {
 /* App Container Layout */
 .app-container {
     display: flex;
-    height: 100vh;
-    height: 100dvh;
+    height: 100%;
     width: 100%;
     position: relative;
 }

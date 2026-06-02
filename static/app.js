@@ -77,16 +77,6 @@ let btnExportChat;
 let btnCopySummary;
 let selectResponseMode;
 
-// Calculator Elements
-let calcHeader;
-let calcBody;
-let calcToggleIcon;
-let calcLoanBalance;
-let calcLoanRate;
-let calcInvReturn;
-let calcExtraPmt;
-let calcResults;
-
 // Chat Elements
 let chatMessages;
 let chatForm;
@@ -102,15 +92,6 @@ function initDOMElements() {
     btnExportChat = document.getElementById('btn-export-chat');
     btnCopySummary = document.getElementById('btn-copy-summary');
     selectResponseMode = document.getElementById('select-response-mode');
-
-    calcHeader = document.getElementById('calc-header');
-    calcBody = document.getElementById('calc-body');
-    calcToggleIcon = document.getElementById('calc-toggle-icon');
-    calcLoanBalance = document.getElementById('calc-loan-balance');
-    calcLoanRate = document.getElementById('calc-loan-rate');
-    calcInvReturn = document.getElementById('calc-inv-return');
-    calcExtraPmt = document.getElementById('calc-extra-pmt');
-    calcResults = document.getElementById('calc-results');
 
     chatMessages = document.getElementById('chat-messages');
     chatForm = document.getElementById('chat-form');
@@ -140,7 +121,6 @@ document.addEventListener('DOMContentLoaded', () => {
         loadChatHistory();
         initEventListeners();
         fetchStarters();
-        runCalculator(); // Run initial calc
     } catch (e) {
         console.error("Initialization error:", e);
         throw e; // Rethrow to let global window error handler capture it visually
@@ -167,26 +147,6 @@ function initEventListeners() {
     if (cachedMode) {
         selectResponseMode.value = cachedMode;
     }
-
-    // Calculator Toggle Expand/Collapse
-    calcHeader.addEventListener('click', () => {
-        calcBody.classList.toggle('expanded');
-        calcToggleIcon.classList.toggle('rotated');
-    });
-
-    // Calculator Inputs Live Update (Safely bind to both input and change events)
-    const calcInputs = [
-        document.getElementById('calc-loan-balance'),
-        document.getElementById('calc-loan-rate'),
-        document.getElementById('calc-inv-return'),
-        document.getElementById('calc-extra-pmt')
-    ];
-    calcInputs.forEach(input => {
-        if (input) {
-            input.addEventListener('input', runCalculator);
-            input.addEventListener('change', runCalculator);
-        }
-    });
 
     // Chat Input Self-Resizing & Enter key submit
     chatInput.addEventListener('input', () => {
@@ -330,89 +290,7 @@ function renderStarters(starters) {
     });
 }
 
-// Run Loan vs Investing Calculator Math
-function runCalculator() {
-    try {
-        const calcLoanBalance = document.getElementById('calc-loan-balance');
-        const calcLoanRate = document.getElementById('calc-loan-rate');
-        const calcInvReturn = document.getElementById('calc-inv-return');
-        const calcExtraPmt = document.getElementById('calc-extra-pmt');
-        const calcResults = document.getElementById('calc-results');
 
-        if (!calcLoanBalance || !calcLoanRate || !calcInvReturn || !calcExtraPmt || !calcResults) {
-            console.warn("Calculator DOM elements not yet initialized.");
-            return;
-        }
-
-        const balance = parseFloat(calcLoanBalance.value) || 0;
-        const rate = (parseFloat(calcLoanRate.value) || 0) / 100.0;
-        const returnRate = (parseFloat(calcInvReturn.value) || 0) / 100.0;
-        const extra = parseFloat(calcExtraPmt.value) || 0;
-
-        if (extra <= 0 || balance <= 0) {
-            calcResults.innerHTML = '<div class="calc-badge error">Please enter a valid loan balance and extra monthly cash.</div>';
-            return;
-        }
-
-        const r_m = rate / 12.0;
-        let monthsToPay = 0;
-        
-        if (r_m === 0) {
-            monthsToPay = balance / extra;
-        } else {
-            const formulaVal = 1.0 - (balance * r_m) / extra;
-            if (formulaVal > 0) {
-                monthsToPay = -Math.log(formulaVal) / Math.log(1.0 + r_m);
-            } else {
-                monthsToPay = Infinity;
-            }
-        }
-
-        if (monthsToPay !== Infinity && !isNaN(monthsToPay)) {
-            const yearsToPay = monthsToPay / 12.0;
-            const totalPaid = extra * monthsToPay;
-            const interestPaid = totalPaid - balance;
-
-            const r_inv_m = returnRate / 12.0;
-            let investedVal = 0;
-            
-            if (r_inv_m === 0) {
-                investedVal = extra * monthsToPay;
-            } else {
-                investedVal = extra * ((Math.pow(1.0 + r_inv_m, monthsToPay) - 1.0) / r_inv_m);
-            }
-
-            const earnings = investedVal - totalPaid;
-            const loanFutureValue = balance * Math.pow(1.0 + r_m, monthsToPay);
-            const netDiff = investedVal - loanFutureValue;
-
-            // Format numbers to match Streamlit formatting
-            const formatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
-            
-            let badgeHtml = '';
-            if (netDiff > 0) {
-                badgeHtml = `<div class="calc-badge success">Investing wins by: <strong>$${formatter.format(netDiff)}</strong></div>`;
-            } else {
-                badgeHtml = `<div class="calc-badge info">Paying off loan wins by: <strong>$${formatter.format(-netDiff)}</strong></div>`;
-            }
-
-            calcResults.innerHTML = `
-                <p>Payoff Period: <strong>${yearsToPay.toFixed(1)} years</strong></p>
-                <p>Total Interest Paid: <strong>$${formatter.format(interestPaid)}</strong></p>
-                <p>Alternative Investment Value: <strong>$${formatter.format(investedVal)}</strong> <span style="font-size:0.75rem;color:var(--text-secondary);">(Growth: $${formatter.format(earnings)})</span></p>
-                ${badgeHtml}
-            `;
-        } else {
-            calcResults.innerHTML = '<div class="calc-badge error">Extra monthly cash is too low to cover the monthly interest.</div>';
-        }
-    } catch (e) {
-        console.error("Calculator logic error:", e);
-        const resultsEl = document.getElementById('calc-results');
-        if (resultsEl) {
-            resultsEl.innerHTML = `<div class="calc-badge error">Error: ${e.message}</div>`;
-        }
-    }
-}
 
 // Export Chat Transcript
 function exportChat() {
@@ -642,31 +520,7 @@ function renderMessageBubble(role, content, options = {}) {
         bubble.appendChild(followupsDiv);
     }
 
-    // Special Calculator CTA for welcome greeting
-    if (role === 'assistant' && options.isWelcome) {
-        const welcomeCalcDiv = document.createElement('div');
-        welcomeCalcDiv.className = 'welcome-calc-container';
-        welcomeCalcDiv.style.marginTop = '1.25rem';
-        
-        const welcomeCalcBtn = document.createElement('button');
-        welcomeCalcBtn.className = 'btn btn-primary';
-        welcomeCalcBtn.style.width = 'auto';
-        welcomeCalcBtn.style.padding = '0.65rem 1.25rem';
-        welcomeCalcBtn.innerHTML = `
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:middle;">
-                <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
-                <line x1="9" y1="22" x2="9" y2="16"></line>
-                <line x1="8" y1="6" x2="16" y2="6"></line>
-                <line x1="16" y1="14" x2="16" y2="22"></line>
-                <line x1="9" y1="14" x2="15" y2="14"></line>
-                <line x1="9" y1="10" x2="15" y2="10"></line>
-            </svg>
-            <span>Open Loan vs. Investing Calculator</span>
-        `;
-        welcomeCalcBtn.addEventListener('click', openSidebar);
-        welcomeCalcDiv.appendChild(welcomeCalcBtn);
-        bubble.appendChild(welcomeCalcDiv);
-    }
+
 
     chatMessages.appendChild(bubble);
 }
