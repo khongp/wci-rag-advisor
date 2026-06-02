@@ -523,6 +523,7 @@ function renderMessageBubble(role, content, options = {}) {
 
 
     chatMessages.appendChild(bubble);
+    return bubble;
 }
 
 // Scroll chat panel to bottom
@@ -727,7 +728,7 @@ async function handleFormSubmit(e) {
         // Rerender message bubble container fully with thumbs buttons and follow-up buttons
         // Remove the temporary bubble and render a permanent one to establish bindings
         bubble.remove();
-        renderMessageBubble('assistant', cleanedText, {
+        const finalBubble = renderMessageBubble('assistant', cleanedText, {
             confidence: messageObject.confidence,
             confidenceText: messageObject.confidence_text,
             sources: messageObject.sources,
@@ -736,7 +737,13 @@ async function handleFormSubmit(e) {
             msgIndex: bubbleIndex
         });
         
-        scrollToBottom();
+        if (finalBubble) {
+            setTimeout(() => {
+                finalBubble.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 50);
+        } else {
+            scrollToBottom();
+        }
 
     } catch (err) {
         console.error('Error fetching stream response:', err);
