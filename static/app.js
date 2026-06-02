@@ -147,9 +147,18 @@ function initEventListeners() {
         calcToggleIcon.classList.toggle('rotated');
     });
 
-    // Calculator Inputs Live Update
-    [calcLoanBalance, calcLoanRate, calcInvReturn, calcExtraPmt].forEach(input => {
-        input.addEventListener('input', runCalculator);
+    // Calculator Inputs Live Update (Safely bind to both input and change events)
+    const calcInputs = [
+        document.getElementById('calc-loan-balance'),
+        document.getElementById('calc-loan-rate'),
+        document.getElementById('calc-inv-return'),
+        document.getElementById('calc-extra-pmt')
+    ];
+    calcInputs.forEach(input => {
+        if (input) {
+            input.addEventListener('input', runCalculator);
+            input.addEventListener('change', runCalculator);
+        }
     });
 
     // Chat Input Self-Resizing & Enter key submit
@@ -296,65 +305,84 @@ function renderStarters(starters) {
 
 // Run Loan vs Investing Calculator Math
 function runCalculator() {
-    const balance = parseFloat(calcLoanBalance.value) || 0;
-    const rate = (parseFloat(calcLoanRate.value) || 0) / 100.0;
-    const returnRate = (parseFloat(calcInvReturn.value) || 0) / 100.0;
-    const extra = parseFloat(calcExtraPmt.value) || 0;
+    try {
+        const calcLoanBalance = document.getElementById('calc-loan-balance');
+        const calcLoanRate = document.getElementById('calc-loan-rate');
+        const calcInvReturn = document.getElementById('calc-inv-return');
+        const calcExtraPmt = document.getElementById('calc-extra-pmt');
+        const calcResults = document.getElementById('calc-results');
 
-    if (extra <= 0 || balance <= 0) {
-        calcResults.innerHTML = '<div class="calc-badge error">Please enter a valid loan balance and extra monthly cash.</div>';
-        return;
-    }
-
-    const r_m = rate / 12.0;
-    let monthsToPay = 0;
-    
-    if (r_m === 0) {
-        monthsToPay = balance / extra;
-    } else {
-        const formulaVal = 1.0 - (balance * r_m) / extra;
-        if (formulaVal > 0) {
-            monthsToPay = -Math.log(formulaVal) / Math.log(1.0 + r_m);
-        } else {
-            monthsToPay = Infinity;
+        if (!calcLoanBalance || !calcLoanRate || !calcInvReturn || !calcExtraPmt || !calcResults) {
+            console.warn("Calculator DOM elements not yet initialized.");
+            return;
         }
-    }
 
-    if (monthsToPay !== Infinity && !isNaN(monthsToPay)) {
-        const yearsToPay = monthsToPay / 12.0;
-        const totalPaid = extra * monthsToPay;
-        const interestPaid = totalPaid - balance;
+        const balance = parseFloat(calcLoanBalance.value) || 0;
+        const rate = (parseFloat(calcLoanRate.value) || 0) / 100.0;
+        const returnRate = (parseFloat(calcInvReturn.value) || 0) / 100.0;
+        const extra = parseFloat(calcExtraPmt.value) || 0;
 
-        const r_inv_m = returnRate / 12.0;
-        let investedVal = 0;
+        if (extra <= 0 || balance <= 0) {
+            calcResults.innerHTML = '<div class="calc-badge error">Please enter a valid loan balance and extra monthly cash.</div>';
+            return;
+        }
+
+        const r_m = rate / 12.0;
+        let monthsToPay = 0;
         
-        if (r_inv_m === 0) {
-            investedVal = extra * monthsToPay;
+        if (r_m === 0) {
+            monthsToPay = balance / extra;
         } else {
-            investedVal = extra * ((Math.pow(1.0 + r_inv_m, monthsToPay) - 1.0) / r_inv_m);
+            const formulaVal = 1.0 - (balance * r_m) / extra;
+            if (formulaVal > 0) {
+                monthsToPay = -Math.log(formulaVal) / Math.log(1.0 + r_m);
+            } else {
+                monthsToPay = Infinity;
+            }
         }
 
-        const earnings = investedVal - totalPaid;
-        const netDiff = investedVal - totalPaid - interestPaid;
+        if (monthsToPay !== Infinity && !isNaN(monthsToPay)) {
+            const yearsToPay = monthsToPay / 12.0;
+            const totalPaid = extra * monthsToPay;
+            const interestPaid = totalPaid - balance;
 
-        // Format numbers to match Streamlit formatting
-        const formatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
-        
-        let badgeHtml = '';
-        if (netDiff > 0) {
-            badgeHtml = `<div class="calc-badge success">Investing wins by: <strong>$${formatter.format(netDiff)}</strong></div>`;
+            const r_inv_m = returnRate / 12.0;
+            let investedVal = 0;
+            
+            if (r_inv_m === 0) {
+                investedVal = extra * monthsToPay;
+            } else {
+                investedVal = extra * ((Math.pow(1.0 + r_inv_m, monthsToPay) - 1.0) / r_inv_m);
+            }
+
+            const earnings = investedVal - totalPaid;
+            const netDiff = investedVal - totalPaid - interestPaid;
+
+            // Format numbers to match Streamlit formatting
+            const formatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
+            
+            let badgeHtml = '';
+            if (netDiff > 0) {
+                badgeHtml = `<div class="calc-badge success">Investing wins by: <strong>$${formatter.format(netDiff)}</strong></div>`;
+            } else {
+                badgeHtml = `<div class="calc-badge info">Paying off loan wins by: <strong>$${formatter.format(-netDiff)}</strong></div>`;
+            }
+
+            calcResults.innerHTML = `
+                <p>Payoff Period: <strong>${yearsToPay.toFixed(1)} years</strong></p>
+                <p>Total Interest Paid: <strong>$${formatter.format(interestPaid)}</strong></p>
+                <p>Alternative Investment Value: <strong>$${formatter.format(investedVal)}</strong> <span style="font-size:0.75rem;color:var(--text-secondary);">(Growth: $${formatter.format(earnings)})</span></p>
+                ${badgeHtml}
+            `;
         } else {
-            badgeHtml = `<div class="calc-badge info">Paying off loan wins by: <strong>$${formatter.format(-netDiff)}</strong></div>`;
+            calcResults.innerHTML = '<div class="calc-badge error">Extra monthly cash is too low to cover the monthly interest.</div>';
         }
-
-        calcResults.innerHTML = `
-            <p>Payoff Period: <strong>${yearsToPay.toFixed(1)} years</strong></p>
-            <p>Total Interest Paid: <strong>$${formatter.format(interestPaid)}</strong></p>
-            <p>Alternative Investment Value: <strong>$${formatter.format(investedVal)}</strong> <span style="font-size:0.75rem;color:var(--text-secondary);">(Growth: $${formatter.format(earnings)})</span></p>
-            ${badgeHtml}
-        `;
-    } else {
-        calcResults.innerHTML = '<div class="calc-badge error">Extra monthly cash is too low to cover the monthly interest.</div>';
+    } catch (e) {
+        console.error("Calculator logic error:", e);
+        const resultsEl = document.getElementById('calc-results');
+        if (resultsEl) {
+            resultsEl.innerHTML = `<div class="calc-badge error">Error: ${e.message}</div>`;
+        }
     }
 }
 
