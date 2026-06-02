@@ -1046,25 +1046,16 @@ html, body {
     }
 
     .starters-grid {
-        display: flex !important;
-        overflow-x: auto;
+        display: grid !important;
+        grid-template-columns: 1fr;
         gap: 0.5rem;
-        padding-bottom: 0.5rem;
-        scroll-snap-type: x mandatory;
-        scrollbar-width: none; /* Hide standard Firefox scrollbar */
-        -ms-overflow-style: none; /* Hide IE scrollbar */
-    }
-
-    .starters-grid::-webkit-scrollbar {
-        display: none; /* Hide Safari and Chrome scrollbar */
     }
     
     .btn-starter {
-        flex: 0 0 240px;
+        width: 100%;
         font-size: 0.8rem;
-        min-height: 60px;
-        padding: 0.5rem 0.85rem;
-        scroll-snap-align: start;
+        min-height: 48px;
+        padding: 0.65rem 1rem;
         white-space: normal;
     }
 }
