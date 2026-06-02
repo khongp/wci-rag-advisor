@@ -79,7 +79,7 @@ html, body {
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
-    z-index: 100;
+    z-index: 105;
     transition: var(--transition-smooth);
 }
 
