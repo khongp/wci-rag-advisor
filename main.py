@@ -11,6 +11,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import requests as http_requests
 
+# Concurrency & Rate Limiting Imports
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from filelock import FileLock, Timeout
+
 # Import core RAG components from existing rag.py
 from rag import get_rag_chain, retrieve_context, stream_answer, get_random_article_titles
 
@@ -18,7 +24,10 @@ from rag import get_rag_chain, retrieve_context, stream_answer, get_random_artic
 from dotenv import load_dotenv
 load_dotenv()
 
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(title="White RAG Investor API")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Enable CORS for local testing and external hosting flexibility
 app.add_middleware(
@@ -37,30 +46,37 @@ VECTOR_STORE = None
 
 def run_weekly_auto_sync():
     """Runs a background check to update articles from the WCI sitemap/feed weekly."""
+    # Use filelock to prevent concurrent sync executions across multiple worker processes
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    lock_file = os.path.join(base_dir, "auto_sync.lock")
+    lock = FileLock(lock_file)
     try:
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        sync_file = os.path.join(base_dir, "last_scrape_time.txt")
-        current_time = time.time()
-        
-        last_run = 0
-        if os.path.exists(sync_file):
-            with open(sync_file, "r") as f:
-                try:
-                    last_run = float(f.read().strip())
-                except ValueError:
-                    pass
-        
-        # 604,800 seconds = 7 days
-        if current_time - last_run > 604800:
-            print("Auto-sync: Check and update articles starting in background...")
-            from scraper import run_rss_update
-            run_rss_update()
-            with open(sync_file, "w") as f:
-                f.write(str(current_time))
-            print("Auto-sync completed successfully.")
-        else:
-            days_left = (604800 - (current_time - last_run)) / 86400
-            print(f"Auto-sync: Skipping background update (last run was {7 - days_left:.2f} days ago, next run in {days_left:.2f} days).")
+        # Acquire lock without blocking startup indefinitely if another worker holds it
+        with lock.acquire(timeout=2):
+            sync_file = os.path.join(base_dir, "last_scrape_time.txt")
+            current_time = time.time()
+            
+            last_run = 0
+            if os.path.exists(sync_file):
+                with open(sync_file, "r") as f:
+                    try:
+                        last_run = float(f.read().strip())
+                    except ValueError:
+                        pass
+            
+            # 604,800 seconds = 7 days
+            if current_time - last_run > 604800:
+                print("Auto-sync: Check and update articles starting in background...")
+                from scraper import run_rss_update
+                run_rss_update()
+                with open(sync_file, "w") as f:
+                    f.write(str(current_time))
+                print("Auto-sync completed successfully.")
+            else:
+                days_left = (604800 - (current_time - last_run)) / 86400
+                print(f"Auto-sync: Skipping background update (last run was {7 - days_left:.2f} days ago, next run in {days_left:.2f} days).")
+    except Timeout:
+        print("Auto-sync: Another worker process is already running or holding the sync lock.")
     except Exception as e:
         print(f"Auto-sync failed: {e}")
 
@@ -211,14 +227,15 @@ def get_starters():
     ]}
 
 @app.post("/api/chat")
-async def chat_endpoint(request: ChatRequest):
+@limiter.limit("10/minute")
+def chat_endpoint(chat_request: ChatRequest, request: Request):
     global RAG_CHAIN, RETRIEVER, LLM
     if RAG_CHAIN is None:
         raise HTTPException(status_code=503, detail="RAG system is still initializing. Please try again in a moment.")
     
-    prompt = request.message
-    history = request.history
-    response_mode = request.response_mode
+    prompt = chat_request.message
+    history = chat_request.history
+    response_mode = chat_request.response_mode
     
     if response_mode not in RESPONSE_INSTRUCTIONS:
         response_mode = "Standard"
