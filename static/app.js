@@ -754,34 +754,50 @@ async function handleFormSubmit(e) {
     }
 }
 
-// Sidebar Loan Payoff vs. Investing Calculator
+// Calculator Modal — Loan Payoff vs. Investing
 function initCalculator() {
-    const calcHeader = document.getElementById('calc-header');
-    const calcBody = document.getElementById('calc-body');
+    const modalOverlay = document.getElementById('calc-modal-overlay');
+    const btnOpen = document.getElementById('btn-open-calc');
+    const btnClose = document.getElementById('btn-close-calc');
     
-    if (!calcHeader || !calcBody) return;
-    
-    const toggleIcon = calcHeader.querySelector('.toggle-icon');
-    
-    // Toggle expand/collapse
-    calcHeader.addEventListener('click', () => {
-        calcBody.classList.toggle('expanded');
-        if (toggleIcon) {
-            toggleIcon.classList.toggle('rotated');
+    if (!modalOverlay || !btnOpen) return;
+
+    // Open modal
+    btnOpen.addEventListener('click', () => {
+        modalOverlay.classList.add('active');
+        calculateLoanVsInvesting();
+    });
+
+    // Close modal via X button
+    if (btnClose) {
+        btnClose.addEventListener('click', () => {
+            modalOverlay.classList.remove('active');
+        });
+    }
+
+    // Close modal via clicking backdrop
+    modalOverlay.addEventListener('click', (e) => {
+        if (e.target === modalOverlay) {
+            modalOverlay.classList.remove('active');
+        }
+    });
+
+    // Close modal via Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modalOverlay.classList.contains('active')) {
+            modalOverlay.classList.remove('active');
         }
     });
     
-    // Listen for inputs
+    // Listen for both 'input' (typing) and 'change' (spinner arrows) events
     const inputs = ['calc-loan-balance', 'calc-loan-rate', 'calc-inv-return', 'calc-extra-pmt'];
     inputs.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             el.addEventListener('input', calculateLoanVsInvesting);
+            el.addEventListener('change', calculateLoanVsInvesting);
         }
     });
-    
-    // Run initial calculation
-    calculateLoanVsInvesting();
 }
 
 function calculateLoanVsInvesting() {
@@ -795,13 +811,12 @@ function calculateLoanVsInvesting() {
     const invReturn = (parseFloat(invReturnVal) || 0) / 100.0;
     const extraPmt = parseFloat(extraPmtVal) || 0;
     
-    const resultsDiv = document.getElementById('calc-results');
     const payoffPeriodEl = document.getElementById('res-payoff-period');
     const interestPaidEl = document.getElementById('res-interest-paid');
     const invValEl = document.getElementById('res-inv-val');
     const verdictEl = document.getElementById('res-verdict');
     
-    if (!resultsDiv || !payoffPeriodEl || !interestPaidEl || !invValEl || !verdictEl) return;
+    if (!payoffPeriodEl || !interestPaidEl || !invValEl || !verdictEl) return;
     
     if (extraPmt <= 0 || loanBalance <= 0) {
         payoffPeriodEl.textContent = '-';
@@ -839,19 +854,22 @@ function calculateLoanVsInvesting() {
             investedVal = extraPmt * ((Math.pow(1.0 + r_inv_m, monthsToPay) - 1.0) / r_inv_m);
         }
         
-        const netDiff = investedVal - totalPaid - interestPaid;
+        // Compare: what your invested money would be worth vs. the total you'd
+        // spend paying off the loan (principal + interest). The difference is
+        // the net gain (or loss) from choosing to invest instead of paying down.
+        const netGainFromInvesting = investedVal - totalPaid;
         
         payoffPeriodEl.textContent = `${yearsToPay.toFixed(1)} years`;
         interestPaidEl.textContent = `$${Math.round(interestPaid).toLocaleString()}`;
         invValEl.textContent = `$${Math.round(investedVal).toLocaleString()}`;
         verdictEl.style.display = 'block';
         
-        if (netDiff > 0) {
+        if (netGainFromInvesting > 0) {
             verdictEl.className = 'calc-badge success';
-            verdictEl.textContent = `Investing wins by: $${Math.round(netDiff).toLocaleString()}`;
+            verdictEl.textContent = `Investing wins by $${Math.round(netGainFromInvesting).toLocaleString()}`;
         } else {
             verdictEl.className = 'calc-badge info';
-            verdictEl.textContent = `Paying off loan wins by: $${Math.round(-netDiff).toLocaleString()}`;
+            verdictEl.textContent = `Paying off loan wins by $${Math.round(-netGainFromInvesting).toLocaleString()}`;
         }
     } else {
         payoffPeriodEl.textContent = 'Never';

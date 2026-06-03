@@ -212,44 +212,105 @@ html, body {
     justify-content: space-between;
 }
 
-/* Expandable Calculator Container */
-.calculator-card {
-    padding: 0;
-    overflow: hidden;
+/* Calculator Modal Overlay */
+.calc-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    animation: fadeIn 0.2s ease-out;
 }
 
-.card-header-toggle {
-    padding: 1.25rem;
-    cursor: pointer;
+.calc-modal-overlay.active {
+    display: flex;
+}
+
+.calc-modal {
+    background: linear-gradient(180deg, #111827 0%, #0f172a 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 2rem;
+    max-width: 520px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(56, 189, 248, 0.08);
+    animation: modalSlideIn 0.3s ease-out;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.calc-modal-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    user-select: none;
+    margin-bottom: 0.75rem;
 }
 
-.card-header-toggle h3 {
-    margin-bottom: 0;
+.calc-modal-header h2 {
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    background: linear-gradient(90deg, #f8fafc 0%, #38bdf8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
-.toggle-icon {
-    transition: var(--transition-smooth);
+.btn-close-calc {
+    background: transparent;
+    border: 1px solid var(--border-color);
     color: var(--text-secondary);
+    border-radius: 10px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition-smooth);
 }
 
-.toggle-icon.rotated {
-    transform: rotate(180deg);
+.btn-close-calc:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+    border-color: var(--semantic-error);
 }
 
-.card-body-expandable {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease-out;
-    padding: 0 1.25rem;
+.calc-modal-body {
+    margin-top: 1.25rem;
 }
 
-.card-body-expandable.expanded {
-    max-height: 800px;
-    padding: 0 1.25rem 1.25rem 1.25rem;
+.calc-inputs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+@media (max-width: 500px) {
+    .calc-inputs-grid {
+        grid-template-columns: 1fr;
+    }
+    .calc-modal {
+        padding: 1.5rem;
+    }
 }
 
 .calc-description {
@@ -300,21 +361,28 @@ html, body {
 
 /* Calculator Results UI */
 .calc-results {
-    margin-top: 1.25rem;
-    padding-top: 1rem;
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
     border-top: 1px solid var(--border-color);
-    font-size: 0.825rem;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.65rem;
 }
 
-.calc-results p {
+.calc-results-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.875rem;
+}
+
+.calc-results-row span {
     color: var(--text-secondary);
 }
 
-.calc-results strong {
+.calc-results-row strong {
     color: var(--text-primary);
+    font-size: 0.95rem;
 }
 
 .calc-badge {
@@ -363,6 +431,35 @@ html, body {
     justify-content: center;
     padding: 0 1.5rem;
     z-index: 10;
+    position: relative;
+}
+
+.btn-calc-trigger {
+    position: absolute;
+    right: 1.25rem;
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    border-radius: 12px;
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+}
+
+.btn-calc-trigger:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--accent-sky);
+    color: var(--accent-sky);
+    box-shadow: 0 0 12px var(--accent-sky-glow);
+    transform: scale(1.05);
+}
+
+.btn-calc-trigger:active {
+    transform: scale(0.95);
 }
 
 .brand-header {
