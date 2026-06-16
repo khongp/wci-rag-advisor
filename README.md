@@ -62,9 +62,9 @@ graph TD
 - **Inline Citations & Source Expander**: Embeds bracketed numbers `[1]`, `[2]` linking directly to an expandable sources drawer displaying titles, dates, excerpts, and URLs.
 - **Dynamic Starters Generator**: Generates custom conversation starters on startup by sampling random financial article titles directly from the Pinecone vector index.
 - **Interactive Loan vs. Investing Calculator**: A modal popup (accessible via the 📊 button in the chat header) that uses real amortization formulas to compare paying off student loans vs. investing in the stock market.
-- **Mobile-Optimized PWA**: Installable standalone Progressive Web App experience featuring a modern dark-mode glassmorphic theme.
-- **Self-Syncing & Deduplication**: Weekly background updates from WCI feeds, backed by file locks and metadata filters to avoid double-indexing.
-- **Beta Feedback Webhook**: A thumbs-up/down widget connected to Google Sheets via Google Apps Script for tracking answer quality.
+- **Mobile-Optimized PWA**: Installable standalone Progressive Web App experience featuring a modern dark-mode glassmorphic theme, secured with **DOMPurify** client-side HTML sanitization.
+- **Self-Syncing & Deduplication**: Indefinite background updates thread checking WCI feeds every 12 hours, backed by file locks and deterministic MD5 URL hash checks.
+- **Beta Feedback Webhook**: A thumbs-up/down widget connected to Google Sheets via Google Apps Script for tracking answer quality, offloaded asynchronously using FastAPI `BackgroundTasks`.
 
 ---
 
@@ -72,14 +72,14 @@ graph TD
 
 | Component | Technology | Description |
 | :--- | :--- | :--- |
-| **Frontend** | HTML5, Vanilla JS, CSS3 SPA | Responsive, mobile-first design, optimized for PWA. |
-| **Backend** | FastAPI, Python 3.11+, Uvicorn | High-performance async API server with server-sent event (SSE) streaming. |
+| **Frontend** | HTML5, Vanilla JS, DOMPurify, CSS3 SPA | Responsive, mobile-first design, optimized for PWA with client-side XSS sanitization. |
+| **Backend** | FastAPI, Python 3.11+, Uvicorn | High-performance async API server with SSE streaming, custom rate limiter, security headers, and DoS limits. |
 | **LLM Engine** | Google Gemini 2.5 Flash Lite | Temperature set to `0.0` to minimize hallucinations. |
 | **Embeddings** | `models/gemini-embedding-001` | High-quality 3072-dimensional vector representations. |
-| **Vector DB** | Pinecone Serverless | Hosted on AWS (`us-east-1`) for low latency vector retrieval. |
+| **Vector DB** | Pinecone Serverless | Hosted on AWS (`us-east-1`) for low-latency vector retrieval. |
 | **Orchestration** | LangChain (LCEL) | Manages embeddings, prompts, chains, and vector store configurations. |
 | **Session Cache** | LangChain `InMemoryCache` | Prevents redundant API requests for identical queries within active sessions. |
-| **Rate Limiter** | SlowAPI (Token Bucket) | Prevents API abuse; client-side caps questions at 25 per session. |
+| **Rate Limiter** | SlowAPI (Token Bucket) | Prevents API abuse, extracting real client IPs behind reverse proxy headers. |
 
 ---
 
@@ -130,11 +130,17 @@ $$FV = P \cdot \frac{(1 + r_{im})^M - 1}{r_{im}}$$
   - If $r_{im} = 0$, $FV = P \cdot M$.
 
 ### 3. Verdict Logic
-We compare the future value of investing ($FV$) against the total capital spent to pay off the loan ($C_{pay} = P \cdot M$, which includes both the principal and interest).
+We compare the future value of investing ($FV_{invest}$) against the future value of the same monthly payments if applied directly to the loan ($FV_{loan}$), which is equivalent to saving interest and compounding at the loan's interest rate.
+The future value of loan payments is:
+$$FV_{loan} = P \cdot \frac{(1 + r_{lm})^M - 1}{r_{lm}}$$
+
+* **Edge Case**:
+  - If $r_{lm} = 0$, $FV_{loan} = P \cdot M$.
+
 The net gain from investing is:
-$$\text{Net Gain} = FV - C_{pay}$$
-- If $\text{Net Gain} > 0$, **Investing** is flagged as the winning strategy (the market returns more than you'd spend on loan payments).
-- If $\text{Net Gain} \le 0$, **Paying off the loan** is recommended (guaranteed interest savings outweigh projected market gains).
+$$\text{Net Gain} = FV_{invest} - FV_{loan}$$
+- If $\text{Net Gain} > 0$, **Investing** is flagged as the winning strategy (the market return rate is higher than the loan interest rate).
+- If $\text{Net Gain} \le 0$, **Paying off the loan** is recommended (guaranteed interest savings from paying off the loan outweigh projected market gains).
 
 ---
 
@@ -145,12 +151,13 @@ To operate effectively within the Pinecone Free Tier (2 GB/100k vector limits), 
 > `investing`, `insurance`, `disability`, `malpractice`, `student-loan`, `personal-finance`, `retirement`, `tax`, `estate-planning`, `asset-protection`, `real-estate`, `budgeting`, `debt`, `mortgage`, `401k`, `roth`, `hsa`, `contract`, `entrepreneurship`
 
 ### Safe Background Auto-Sync
-Every time the FastAPI server starts, a background sync thread checks WCI RSS feeds for new posts.
+A persistent background thread loops indefinitely to keep WCI knowledge updated.
 - **Process Locking**: Uses `filelock` to create `auto_sync.lock`, preventing multiple server workers from initiating overlapping scraping tasks.
-- **Interval Check**: Compares the current timestamp to `last_scrape_time.txt` to guarantee syncs occur at most once every 7 days.
+- **Loop Schedule**: Wakes up every **12 hours** to check if more than 7 days have elapsed since the last update, eliminating reliance on container restarts.
 
 ### Vector Deduplication & Storage Guardrails
-- **Metadata Filters**: Before vectorizing, a metadata query is sent to Pinecone matching the target URL filter. If vectors with the same source metadata exist, the article is skipped, protecting the index from duplicates across restarts or ephemeral container storage.
+- **Deterministic ID Check**: Document chunks are stored under deterministic IDs generated from the MD5 hash of their URL (`md5(url)_index`).
+- **Direct KV Fetch Lookup**: Instead of querying Pinecone with a dummy vector and metadata filter, the system directly retrieves the first chunk ID via `index.fetch(ids=[url_hash_0])`. This is fast, virtually free, and protects the index from duplication.
 - **Ceiling Monitor**: A hard ceiling of **1.8 GB** is enforced (estimated as $\text{Vector Count} \times 12\text{ KB}$). If usage exceeds this, targeted scraping halts automatically to preserve index stability.
 
 ---

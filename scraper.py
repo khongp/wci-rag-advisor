@@ -1,5 +1,6 @@
 import os
 import requests
+import re
 from bs4 import BeautifulSoup
 import feedparser
 from dotenv import load_dotenv
@@ -21,6 +22,10 @@ PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "wci-index")
 # Initialize Embeddings
 embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
 
+# Connection Pooling with requests.Session
+http_session = requests.Session()
+http_session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"})
+
 # Ensure Pinecone Index Exists
 pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 if PINECONE_INDEX_NAME not in pc.list_indexes().names():
@@ -35,6 +40,9 @@ if PINECONE_INDEX_NAME not in pc.list_indexes().names():
     while not pc.describe_index(PINECONE_INDEX_NAME).status['ready']:
         time.sleep(1)
     print("Index created successfully!")
+
+# Global Pinecone Index reference to prevent re-instantiation overhead
+pinecone_index = pc.Index(PINECONE_INDEX_NAME)
 
 def load_processed_urls():
     if os.path.exists(PROCESSED_URLS_FILE):
@@ -56,7 +64,7 @@ def scrape_article(url):
     return None
 
 def process_and_store(url, title, content, vector_store, publish_date=None):
-    """Chunks the text and stores it in Pinecone."""
+    """Chunks the text and stores it in Pinecone with deterministic URL-hash based IDs."""
     print(f"Vectorizing: {title} ({publish_date if publish_date else 'No date'})")
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1500,
@@ -73,23 +81,29 @@ def process_and_store(url, title, content, vector_store, publish_date=None):
             meta["publish_date"] = publish_date
         metadatas.append(meta)
     
-    # Store in Vector DB
-    vector_store.add_texts(texts=chunks, metadatas=metadatas)
+    # Store in Vector DB with deterministic IDs to allow cloud-safe KV lookup deduplication
+    import hashlib
+    url_hash = hashlib.md5(url.encode('utf-8')).hexdigest()
+    ids = [f"{url_hash}_{i}" for i in range(len(chunks))]
+    vector_store.add_texts(texts=chunks, metadatas=metadatas, ids=ids)
+
+def sanitize_keys(text: str) -> str:
+    # Obfuscate Google API keys
+    text = re.sub(r"AIzaSy[A-Za-z0-9_\-]{33}", "[GOOGLE_KEY_OBFUSCATED]", text)
+    # Obfuscate Pinecone API keys
+    text = re.sub(r"pcsk_[A-Za-z0-9_]{60,80}", "[PINECONE_KEY_OBFUSCATED]", text)
+    return text
 
 def is_url_indexed(url):
-    """Check if a URL has already been indexed in Pinecone (cloud-safe dedup)."""
+    """Check if a URL has already been indexed in Pinecone (cloud-safe dedup KV check)."""
     try:
-        index = pc.Index(PINECONE_INDEX_NAME)
-        # Use a dummy vector for the query — we only care about the metadata filter
-        dummy_vector = [1.0] + [0.0] * 3071
-        results = index.query(
-            vector=dummy_vector,
-            filter={"source": {"$eq": url}},
-            top_k=1,
-            include_metadata=False
-        )
-        return len(results.matches) > 0
-    except Exception:
+        import hashlib
+        url_hash = hashlib.md5(url.encode('utf-8')).hexdigest()
+        # Direct fetch lookup for the first chunk ID (fast and free)
+        res = pinecone_index.fetch(ids=[f"{url_hash}_0"])
+        return len(res.vectors) > 0
+    except Exception as e:
+        print(f"Error checking if URL is indexed: {sanitize_keys(str(e))}")
         return False
 
 def fetch_from_feed(feed_url, vector_store, processed, max_pages=1):
@@ -101,7 +115,13 @@ def fetch_from_feed(feed_url, vector_store, processed, max_pages=1):
             paged_url = f"{feed_url}?paged={page}"
             
         print(f"Checking RSS feed: {paged_url}")
-        feed = feedparser.parse(paged_url)
+        try:
+            res = http_session.get(paged_url, timeout=10)
+            res.raise_for_status()
+            feed = feedparser.parse(res.content)
+        except Exception as e:
+            print(f"Error fetching feed {paged_url}: {sanitize_keys(str(e))}")
+            break
         
         if not feed.entries:
             break
@@ -191,8 +211,13 @@ def deep_scrape(max_pages=5):
     print(f"Current Pinecone records: {current_records:,}")
     
     # Dynamically discover all WCI categories
-    res = requests.get("https://www.whitecoatinvestor.com/category-sitemap.xml", headers={"User-Agent": "Mozilla/5.0"})
-    res.raise_for_status()
+    try:
+        res = http_session.get("https://www.whitecoatinvestor.com/category-sitemap.xml", timeout=10)
+        res.raise_for_status()
+    except Exception as e:
+        print(f"Failed to fetch sitemap: {sanitize_keys(str(e))}")
+        return
+        
     soup = BeautifulSoup(res.content, "html.parser")
     category_locs = soup.find_all("loc")
     

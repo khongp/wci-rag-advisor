@@ -53,19 +53,27 @@ const MAX_QUESTIONS = 25;
 
 // Safe markdown parsing wrapper
 function parseMarkdown(text) {
+    let rawHTML = "";
     if (typeof marked !== 'undefined') {
-        return marked.parse(text);
+        rawHTML = marked.parse(text);
+    } else {
+        // Fallback basic text formatter if CDN fails
+        console.warn('Marked library not loaded. Using fallback plain text formatter.');
+        rawHTML = text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>')
+            .replace(/\n/g, '<br>');
     }
-    // Fallback basic text formatter if CDN fails
-    console.warn('Marked library not loaded. Using fallback plain text formatter.');
-    return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>')
-        .replace(/\n/g, '<br>');
+
+    // Sanitize to prevent XSS from LLM/Prompt Injection outputs
+    if (typeof DOMPurify !== 'undefined') {
+        return DOMPurify.sanitize(rawHTML);
+    }
+    return rawHTML;
 }
 
 // DOM Elements
@@ -854,10 +862,17 @@ function calculateLoanVsInvesting() {
             investedVal = extraPmt * ((Math.pow(1.0 + r_inv_m, monthsToPay) - 1.0) / r_inv_m);
         }
         
-        // Compare: what your invested money would be worth vs. the total you'd
-        // spend paying off the loan (principal + interest). The difference is
-        // the net gain (or loss) from choosing to invest instead of paying down.
-        const netGainFromInvesting = investedVal - totalPaid;
+        let loanEquivalentVal;
+        if (r_m === 0) {
+            loanEquivalentVal = extraPmt * monthsToPay;
+        } else {
+            loanEquivalentVal = extraPmt * ((Math.pow(1.0 + r_m, monthsToPay) - 1.0) / r_m);
+        }
+        
+        // Compare: what your invested money would be worth (investedVal)
+        // vs. what paying down the loan is worth (the interest saved, which is equivalent
+        // to compounding payments at the loan rate, i.e., loanEquivalentVal).
+        const netGainFromInvesting = investedVal - loanEquivalentVal;
         
         payoffPeriodEl.textContent = `${yearsToPay.toFixed(1)} years`;
         interestPaidEl.textContent = `$${Math.round(interestPaid).toLocaleString()}`;

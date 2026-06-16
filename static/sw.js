@@ -1,11 +1,11 @@
-const CACHE_NAME = 'wri-cache-v12';
+const CACHE_NAME = 'wri-cache-v13';
 const ASSETS = [
   '/',
   '/static/index.html',
   '/static/style.css',
   '/static/app.js',
-  '/static/app_logo.png',
-  '/static/manifest.json'
+  '/app_logo.png',
+  '/manifest.json'
 ];
 
 // Install Event
@@ -34,7 +34,7 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
-// Fetch Event (Network-first fallback to Cache)
+// Fetch Event (Cache-first with background network revalidation)
 self.addEventListener('fetch', (e) => {
   // Only handle GET requests and avoid caching API calls
   if (e.request.method !== 'GET' || e.request.url.includes('/api/')) {
@@ -42,15 +42,29 @@ self.addEventListener('fetch', (e) => {
   }
   
   e.respondWith(
-    fetch(e.request)
-      .then((res) => {
-        // Clone response to put it in cache
-        const resClone = res.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(e.request, resClone);
-        });
-        return res;
-      })
-      .catch(() => caches.match(e.request))
+    caches.match(e.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        // Fetch new version in background to update cache (stale-while-revalidate)
+        fetch(e.request).then((networkResponse) => {
+          if (networkResponse.status === 200) {
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(e.request, networkResponse);
+            });
+          }
+        }).catch(() => {/* Ignore background sync error */});
+        
+        return cachedResponse;
+      }
+      
+      return fetch(e.request).then((networkResponse) => {
+        if (networkResponse.status === 200) {
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(e.request, responseClone);
+          });
+        }
+        return networkResponse;
+      });
+    })
   );
 });
