@@ -103,9 +103,7 @@ html, body {
     font-size: 1.15rem;
     font-weight: 800;
     letter-spacing: -0.02em;
-    background: linear-gradient(90deg, #ffffff 0%, #e2e8f0 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--text-primary);
 }
 
 .sidebar-brand span {
@@ -269,9 +267,7 @@ html, body {
     font-size: 1.15rem;
     font-weight: 800;
     letter-spacing: -0.02em;
-    background: linear-gradient(90deg, #f8fafc 0%, #38bdf8 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--text-primary);
 }
 
 .btn-close-calc {
@@ -470,9 +466,7 @@ html, body {
     font-size: 1.5rem;
     font-weight: 800;
     letter-spacing: -0.03em;
-    background: linear-gradient(90deg, #f8fafc 0%, #e2e8f0 50%, #38bdf8 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--text-primary);
 }
 
 .brand-subtitle {
@@ -559,12 +553,12 @@ html, body {
 
 .message-user {
     background: linear-gradient(135deg, rgba(30, 41, 59, 0.75) 0%, rgba(15, 23, 42, 0.85) 100%);
-    border-left: 5px solid var(--accent-sky);
+    border: 1px solid rgba(56, 189, 248, 0.35);
 }
 
 .message-assistant {
     background: linear-gradient(135deg, rgba(20, 20, 35, 0.75) 0%, rgba(15, 23, 42, 0.85) 100%);
-    border-left: 5px solid var(--accent-indigo);
+    border: 1px solid rgba(129, 140, 248, 0.35);
 }
 
 .message-role-label {
