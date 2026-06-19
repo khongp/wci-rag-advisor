@@ -53,13 +53,17 @@ const MAX_QUESTIONS = 25;
 
 // Safe markdown parsing wrapper
 function parseMarkdown(text) {
+    // Convert raw URLs (not already in markdown links, HTML attributes or markdown autolinks) to markdown links
+    const rawUrlRegex = /([^"'(\[<]|^)(https?:\/\/[^\s<>\)]+?)(?=[.,;:?!]*(?:\s|$))/g;
+    const linkifiedText = text.replace(rawUrlRegex, '$1[$2]($2)');
+
     let rawHTML = "";
     if (typeof marked !== 'undefined') {
-        rawHTML = marked.parse(text);
+        rawHTML = marked.parse(linkifiedText);
     } else {
         // Fallback basic text formatter if CDN fails
         console.warn('Marked library not loaded. Using fallback plain text formatter.');
-        rawHTML = text
+        rawHTML = linkifiedText
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
