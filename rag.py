@@ -8,7 +8,9 @@ from langchain_core.globals import set_llm_cache
 from langchain_core.caches import InMemoryCache
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load environment variables relative to the script directory
+base_dir = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(base_dir, ".env"))
 
 # In-memory cache for identical queries within a session.
 # Resets on server restart but prevents duplicate API calls.

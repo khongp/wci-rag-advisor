@@ -8,7 +8,9 @@ import base64
 from scraper import run_rss_update
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load environment variables relative to the script directory
+base_dir = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(base_dir, ".env"))
 
 
 def get_base64_image(path):

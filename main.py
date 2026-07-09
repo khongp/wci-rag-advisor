@@ -23,7 +23,8 @@ from rag import get_rag_chain, retrieve_context, stream_answer, get_random_artic
 
 # Load environment variables (done inside rag.py, but safe to load here as well)
 from dotenv import load_dotenv
-load_dotenv()
+base_dir = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(base_dir, ".env"))
 
 # Key Sanitizer to protect API credentials in execution/crash logs
 def sanitize_keys(text: str) -> str:
@@ -48,16 +49,18 @@ RAG_CHAIN = None
 RETRIEVER = None
 LLM = None
 VECTOR_STORE = None
+RAG_INIT_ERROR = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global RAG_CHAIN, RETRIEVER, LLM, VECTOR_STORE
+    global RAG_CHAIN, RETRIEVER, LLM, VECTOR_STORE, RAG_INIT_ERROR
     try:
         print("Initializing RAG chain components...")
         RAG_CHAIN, RETRIEVER, LLM, VECTOR_STORE = get_rag_chain()
         print("RAG initialized successfully.")
     except Exception as e:
         sanitized_msg = sanitize_keys(str(e))
+        RAG_INIT_ERROR = sanitized_msg
         print(f"CRITICAL ERROR initializing RAG chain: {sanitized_msg}")
         # Note: In production containers, we print the error, but we don't halt startup
         # so the server can display a friendly error on the frontend rather than crash.
@@ -281,9 +284,12 @@ def get_starters():
 @app.post("/api/chat")
 @limiter.limit("10/minute")
 def chat_endpoint(chat_request: ChatRequest, request: Request):
-    global RAG_CHAIN, RETRIEVER, LLM
+    global RAG_CHAIN, RETRIEVER, LLM, RAG_INIT_ERROR
     if RAG_CHAIN is None:
-        raise HTTPException(status_code=503, detail="RAG system is still initializing. Please try again in a moment.")
+        detail_msg = "RAG system is still initializing. Please try again in a moment."
+        if RAG_INIT_ERROR:
+            detail_msg = f"RAG system initialization failed: {RAG_INIT_ERROR}."
+        raise HTTPException(status_code=503, detail=detail_msg)
     
     prompt = chat_request.message
     history = chat_request.history

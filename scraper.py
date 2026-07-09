@@ -12,7 +12,9 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from pinecone import Pinecone, ServerlessSpec
 
-load_dotenv()
+# Load environment variables relative to the script directory
+base_dir = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(base_dir, ".env"))
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROCESSED_URLS_FILE = os.path.join(BASE_DIR, "processed_urls.json")

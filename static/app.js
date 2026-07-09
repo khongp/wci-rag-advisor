@@ -596,7 +596,16 @@ async function handleFormSubmit(e) {
         });
 
         if (!response.ok) {
-            throw new Error(`Server returned code ${response.status}`);
+            let errorDetail = '';
+            try {
+                const errData = await response.json();
+                if (errData && errData.detail) {
+                    errorDetail = `: ${errData.detail}`;
+                }
+            } catch (e) {
+                // Response was not JSON or parsing failed
+            }
+            throw new Error(`Server returned code ${response.status}${errorDetail}`);
         }
 
         // Remove loading status spinner
